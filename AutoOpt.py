@@ -107,11 +107,11 @@ def main(util: Utility, system: NuclearSystem):
 
     # STEP 2: Find starting bscat value (bscat yielding E_rel ~ 3 MeV)
     ss = str(system.parameters['spatial_symmetry'])
-    b_0 = minimize_scalar(find_starting_bscat, args=(ss, target_energy, scattering_deck, scattering_deck_name, system.parameters['e_start'], scattering_ctrl, cmd, BIN_PATH), bounds=(-0.15, 0.15), method='bounded', options={'maxiter': 5}).x  # Find bscat that gives E_rel close to E_start
+    b_0 = minimize_scalar(find_starting_bscat, args=(ss, target_energy, scattering_deck, scattering_deck_name, system.parameters['e_start'], scattering_ctrl, cmd, BIN_PATH), bounds=(-0.15, 0.15), method='bounded', options={'maxiter': 10}).x  # Find bscat that gives E_rel close to E_start
     print(f"Initial bscat found: {b_0:.4f}")
     scattering_deck.parameters[ss].bscat = b_0
     scattering_deck.write_deck(scattering_deck_name)                                      # Update bscat in deck
-    scattering_deck.parameters[ss].wse = calculate_energy_com(extract_final_energy(run_energy(scattering_ctrl, cmd, BIN_PATH)), target_energy) - 0.5
+    scattering_deck.parameters[ss].wse = calculate_energy_com(extract_final_energy(run_energy(scattering_ctrl, cmd, BIN_PATH)), target_energy)-0.5
     scattering_deck.write_deck(scattering_deck_name)                         # Set wse based on closest E_rel
     print(f"Setting wse to {scattering_deck.parameters[ss].wse:.4f} in {scattering_deck_name}")
 
@@ -124,11 +124,11 @@ def main(util: Utility, system: NuclearSystem):
     optimized_scattering_deck, _ = read_params_and_deck(param_file, opt_deck_file)
 
     # do bscat search again
-    b_0 = minimize_scalar(find_starting_bscat, args=(ss, target_energy, optimized_scattering_deck, opt_deck_file, system.parameters['e_start'], scattering_ctrl, cmd, BIN_PATH), bounds=(-0.15, 0.15), method='bounded', options={'maxiter': 3}).x  # Find bscat that gives E_rel close to E_start
+    b_0 = minimize_scalar(find_starting_bscat, args=(ss, target_energy, optimized_scattering_deck, opt_deck_file, system.parameters['e_start'], scattering_ctrl, cmd, BIN_PATH), bounds=(-0.15, 0.15), method='bounded', options={'maxiter': 10}).x  # Find bscat that gives E_rel close to E_start
     print(f"Bscat after 2nd search: {b_0:.4f}")
     optimized_scattering_deck.parameters[ss].bscat = b_0
     optimized_scattering_deck.write_deck(opt_deck_file.strip(".dk"))                                      # Update bscat in deck
-    optimized_scattering_deck.parameters[ss].wse = calculate_energy_com(extract_final_energy(run_energy(scattering_ctrl, cmd, BIN_PATH)), target_energy) - 0.5
+    optimized_scattering_deck.parameters[ss].wse = calculate_energy_com(extract_final_energy(run_energy(scattering_ctrl, cmd, BIN_PATH)), target_energy)-0.5
     optimized_scattering_deck.write_deck(opt_deck_file.strip(".dk"))                         # Set wse based on closest E_rel
     print(f"Setting wse to {optimized_scattering_deck.parameters[ss].wse:.4f} in {opt_deck_file}")
 
@@ -282,7 +282,7 @@ def opt_E(bscat, ss, control_file, target_energy, scratch_dir, cmd, BIN_PATH):
         deck_file,
         ss,
         correlation_groups=[
-            {'params': ['wse'], 'mode': 'set', 'value': 0.5}
+            {'params': ['wse'], 'mode': 'set', 'value': 0.4}
         ]
     )
     wse_opt_path = save_opt_file(bscat, wse_corr, "./opt", wse_flag=True)
@@ -309,7 +309,7 @@ def opt_E(bscat, ss, control_file, target_energy, scratch_dir, cmd, BIN_PATH):
 
 
 def clean_dir(scattering_ctrl_file, target_ctrl_file):
-    # shutil.rmtree(Path("opt"), ignore_errors=True)
+    shutil.rmtree(Path("opt"), ignore_errors=True)
     os.remove("temp.dk")
     os.remove(scattering_ctrl_file)
     os.remove(target_ctrl_file)

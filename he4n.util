@@ -1,6 +1,6 @@
-/Users/lydiamazeeva/QMC/nQMCC/nQMCC/external/nQMCC_Scripts       working_dir
-/Users/lydiamazeeva/QMC/nQMCC/nQMCC                              input_dir        
-/Users/lydiamazeeva/QMC/nQMCC/nQMCC/ctrl/he4_copy.ctrl           target_file
-/Users/lydiamazeeva/QMC/nQMCC/nQMCC/ctrl/he4n_copy.ctrl          scattering_file
-/Users/lydiamazeeva/QMC/nQMCC/nQMCC/build/bin                    binary_dir
-mpirun -np 8                                                     run_cmd
+/global/homes/l/lydiamaz/qmc/nQMCC/external/nQMCC_Scripts       working_dir
+/global/homes/l/lydiamaz/qmc/nQMCC/                              input_dir        
+/global/homes/l/lydiamaz/qmc/nQMCC/ctrl/he4_copy.ctrl           target_file
+/global/homes/l/lydiamaz/qmc/nQMCC/ctrl/he4n_copy.ctrl          scattering_file
+/global/homes/l/lydiamaz/qmc/nQMCC/build/bin                    binary_dir
+srun -n 256 -c 2 --cpu_bind=cores                                                     run_cmd

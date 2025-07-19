@@ -4,7 +4,7 @@ av18.pot                                 2b_potentials
 none.3bp                                 3b_potentials
 +0.5                                     channels
 3.0                                      e_start
-0.5                                      e_min
+0.25                                      e_min
 6.0                                      e_max
 0.250000                                 input_de
-0.25                                 input_db
+0.15                                 input_db

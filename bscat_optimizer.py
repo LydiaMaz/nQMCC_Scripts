@@ -22,7 +22,7 @@ def estimate_initial_db_de(b_0, ss, input_db, control_file, og_deck, og_deck_fil
     control = Control()
     control.read_control(control_file)
 
-    print("FORWARD (b_minus)")
+    print("\nBACKWARD (b_minus)")
     E_minus, *_ = opt_E(b_minus, ss, control_file, target_energy, "scratch", cmd, BIN_PATH) # <- deck file changes 
 
     # reset control deck 
@@ -30,7 +30,7 @@ def estimate_initial_db_de(b_0, ss, input_db, control_file, og_deck, og_deck_fil
     control.write_control()
     og_deck.write_deck(og_deck_file.strip(".dk"))
     
-    print("BACKWARD (b_plus)")
+    print("\nFORWARD (b_plus)")
     E_plus, *_ = opt_E(b_plus, ss, control_file, target_energy, "scratch", cmd, BIN_PATH)
 
     # reset control deck 
@@ -92,9 +92,6 @@ def run_bscat_scan(control_file, b_0, ss, input_db, input_de, E_min, E_max, E_st
         db_de = update_db_de(b_next, b_prev, E_next, E_prev)
         log_step_info(step, "Forward", b_next, db_de, E_next)
 
-        if E_next < E_min or E_next > E_max or abs(db_de) > slope_max:
-            break
-
         results.append({
             "bscat": b_next,
             "E_rel": E_next,
@@ -102,6 +99,9 @@ def run_bscat_scan(control_file, b_0, ss, input_db, input_de, E_min, E_max, E_st
             "deck_path": path_next,
             "wse": wse_next
         })
+
+        if E_next < E_min or E_next > E_max or abs(db_de) > slope_max:
+            break
 
         bscat = b_next
         b_prev = b_next
@@ -131,9 +131,6 @@ def run_bscat_scan(control_file, b_0, ss, input_db, input_de, E_min, E_max, E_st
 
         log_step_info(step, "Backward", b_next, db_de, E_next)
 
-        if E_next < E_min or E_next > E_max or abs(db_de) > slope_max:
-            break
-
         results.append({
             "bscat": b_next,
             "E_rel": E_next,
@@ -141,6 +138,9 @@ def run_bscat_scan(control_file, b_0, ss, input_db, input_de, E_min, E_max, E_st
             "deck_path": path_next,
             "wse": wse_next
         })
+
+        if E_next < E_min or E_next > E_max or abs(db_de) > slope_max:
+            break
 
         bscat = b_next
         b_prev = b_next
