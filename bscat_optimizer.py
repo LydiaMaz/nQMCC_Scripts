@@ -109,42 +109,42 @@ def run_bscat_scan(control_file, b_0, ss, input_db, input_de, E_min, E_max, E_st
 
     # --- Backward Walk ---
 
-    backward_control = copy.deepcopy(control)
-    backward_control.parameters['wf'].deck_file = f"'{og_deck_file}'"
-    og_deck.write_deck(og_deck_file.strip(".dk")) # Reset deck 
-    backward_control.write_control() # overwrite control file
+    # backward_control = copy.deepcopy(control)
+    # backward_control.parameters['wf'].deck_file = f"'{og_deck_file}'"
+    # og_deck.write_deck(og_deck_file.strip(".dk")) # Reset deck 
+    # backward_control.write_control() # overwrite control file
     
-    bscat = b_0
-    b_prev = b_0
-    E_prev = E_0
-    num_samples_down = int((E_start - E_min) / input_de)
-    db_de = db_de_initial
+    # bscat = b_0
+    # b_prev = b_0
+    # E_prev = E_0
+    # num_samples_down = int((E_start - E_min) / input_de)
+    # db_de = db_de_initial
 
-    print("Starting backward walk")
+    # print("Starting backward walk")
 
-    for step in range(num_samples_down):
-        b_next = bscat - (db_de * input_de)
-        E_next, var_next, path_next, wse_next = opt_E(b_next, ss, control_file, target_energy, "scratch", cmd, BIN_PATH)
-        if E_next is None:
-            break
-        db_de = update_db_de(b_next, b_prev, E_next, E_prev)
+    # for step in range(num_samples_down):
+    #     b_next = bscat - (db_de * input_de)
+    #     E_next, var_next, path_next, wse_next = opt_E(b_next, ss, control_file, target_energy, "scratch", cmd, BIN_PATH)
+    #     if E_next is None:
+    #         break
+    #     db_de = update_db_de(b_next, b_prev, E_next, E_prev)
 
-        log_step_info(step, "Backward", b_next, db_de, E_next)
+    #     log_step_info(step, "Backward", b_next, db_de, E_next)
 
-        results.append({
-            "bscat": b_next,
-            "E_rel": E_next,
-            "variance": var_next,
-            "deck_path": path_next,
-            "wse": wse_next
-        })
+    #     results.append({
+    #         "bscat": b_next,
+    #         "E_rel": E_next,
+    #         "variance": var_next,
+    #         "deck_path": path_next,
+    #         "wse": wse_next
+    #     })
 
-        if E_next < E_min or E_next > E_max or abs(db_de) > slope_max:
-            break
+    #     if E_next < E_min or E_next > E_max or abs(db_de) > slope_max:
+    #         break
 
-        bscat = b_next
-        b_prev = b_next
-        E_prev = E_next
+    #     bscat = b_next
+    #     b_prev = b_next
+    #     E_prev = E_next
 
     # --- Save Results ---
     results_sorted = sorted(results, key=lambda r: r["E_rel"])
