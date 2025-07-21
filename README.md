@@ -7,13 +7,13 @@ This project automates variational Monte Carlo (VMC) optimizations for He4+n sca
 To run a full optimization:
 
 ```bash
-python /absolute/path/to/AutoOpt.py --utility /absolute/path/to/file.util --system /absolute/path/to/file.sys
+python /absolute/path/to/AutoOpt.py --utility /absolute/path/to/file.util --system /absolute/path/to/file.sys --run_cmd "<executable command>"
 ```
 > ⚠️ Make sure your `.util` file includes the following fields:
 
 - `working_dir`: Absolute path where output files will be saved  
 - `input_dir`: Directory containing nuclear input files (e.g., decks, params)  
-- `run_cmd`: Executable command for running nQMCC (depends on your system, e.g. mpirun -np 8)
+- `run_cmd`: Executable command for running nQMCC (depends on your system, e.g. srun -n 256 -c 2 --cpu_bind=cores)
 
 ## Modules
 

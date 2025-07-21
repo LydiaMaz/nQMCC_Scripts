@@ -4,9 +4,12 @@ import shutil
 from control import Control
 
 class Utility:
-    def __init__(self, filename):
+    def __init__(self, filename, run_cmd=None):
         self.util_file = filename
         self.read_util(filename)
+        if run_cmd is not None:
+            self.run_cmd = shlex.split(run_cmd)
+            self.write_util()
 
     def read_util(self, filename):
         if not filename.endswith(".util"):
@@ -67,3 +70,5 @@ class Utility:
 
         setattr(self, 'target_control', target_control)
         setattr(self, 'scattering_control', scattering_control)
+
+utility = Utility("/Users/lydiamazeeva/QMC/nQMCC/nQMCC/external/nQMCC_Scripts/he4n.util", run_cmd="run command here")

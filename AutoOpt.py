@@ -35,9 +35,9 @@ def setup_environment(working_dir):
     (cwd / "opt").mkdir(exist_ok=True) # directory to store opt files
     (cwd / "scratch").mkdir(exist_ok=True) # directory to store temp files
 
-def load_system(util_file, nuclear_system_file):
+def load_system(util_file, nuclear_system_file, run_cmd):
 
-    util = Utility(util_file)
+    util = Utility(util_file, run_cmd=run_cmd)
     setup_environment(util.working_dir)
     util.copy_control_files()  # Copy control files to working directory
     
@@ -323,15 +323,17 @@ if __name__ == '__main__':
         epilog="""\
             Example:
             python AutoOpt.py --utility /path/to/he4n_.util \
-                --system /path/to/he4n.sys 
+                --system /path/to/he4n.sys \
+                --run_cmd 'python3 /path/to/nQMCC_Scripts/run_nQMCC.py'
             """
     )
     parser.add_argument('--utility', required=True, help="Path to the utility file.")
     parser.add_argument('--system', required=True, help="Path to the nuclear system file.")
+    parser.add_argument('--run_cmd', required=True, help="Command to run the nQMCC binaries.")
     args = parser.parse_args()
 
     # Create the System object from CLI parameters
-    utility_obj, system_obj = load_system(args.utility, args.system)
+    utility_obj, system_obj = load_system(args.utility, args.system, args.run_cmd)
     print(f"System '{system_obj.parameters['name']}' successfully initialized.")
     
     # Execute the main auto-optimization routine
