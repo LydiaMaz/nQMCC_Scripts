@@ -1,10 +1,10 @@
 he4n                                     name
 1S[0]                                    spatial_symmetry
-av18.pot                                 2b_potentials
-none.3bp                                 3b_potentials
+nv2_Ia.2bp                                 2b_potentials
+nv3_Ia.3bp                                 3b_potentials
 +0.5                                     channels
 3.0                                      e_start
 0.25                                      e_min
 6.0                                      e_max
-0.250000                                 input_de
+0.25                                 input_de
 0.15                                 input_db

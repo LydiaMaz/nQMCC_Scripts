@@ -47,6 +47,14 @@ def load_system(util_file, nuclear_system_file, run_cmd):
     scattering_control = util.scattering_control
 
     # logic for looping through 2b_potentials
+    existing_path = target_control.parameters['2b_file'].strip("'\"")
+    new_filename = nuclear_system.parameters['2b_potentials'][0]
+    print(f"Updating 2b_file from {existing_path} to {new_filename}")
+    updated_2b_file = os.path.join(os.path.dirname(existing_path), new_filename)
+    target_control.parameters['2b_file'] = f"'{updated_2b_file}'"
+    scattering_control.parameters['2b_file'] = f"'{updated_2b_file}'"
+    target_control.write_control()
+    scattering_control.write_control()
 
     # logic for changing 3b_potentials
 
@@ -251,8 +259,8 @@ def opt_E(bscat, ss, control_file, target_energy, scratch_dir, cmd, BIN_PATH):
         deck_file,
         ss,
         correlation_groups=[
-            {'params': ['spu', 'spv', 'spr', 'spa', 'spb', 'spc', 'spk', 'spl'], 'mode': 'scale', 'value': 0.3},
-            {'params': ['wsr', 'wsa'], 'mode': 'scale', 'value': 0.3}
+            {'params': ['spu', 'spv', 'spr', 'spa', 'spb', 'spc', 'spk', 'spl'], 'mode': 'scale', 'value': 0.2},
+            {'params': ['wsr', 'wsa'], 'mode': 'scale', 'value': 0.2}
         ]
     )
 
@@ -282,7 +290,7 @@ def opt_E(bscat, ss, control_file, target_energy, scratch_dir, cmd, BIN_PATH):
         deck_file,
         ss,
         correlation_groups=[
-            {'params': ['wse'], 'mode': 'set', 'value': 0.3}
+            {'params': ['wse'], 'mode': 'set', 'value': 0.5}
         ]
     )
     wse_opt_path = save_opt_file(bscat, wse_corr, "./opt", wse_flag=True)

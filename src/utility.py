@@ -71,4 +71,3 @@ class Utility:
         setattr(self, 'target_control', target_control)
         setattr(self, 'scattering_control', scattering_control)
 
-utility = Utility("/Users/lydiamazeeva/QMC/nQMCC/nQMCC/external/nQMCC_Scripts/he4n.util", run_cmd="run command here")
