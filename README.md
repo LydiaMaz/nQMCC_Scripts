@@ -1,6 +1,26 @@
 # nQMCC Parameter Optimization Framework
 
-This project automates variational Monte Carlo (VMC) optimizations for He4+n scattering using the nQMCC framework.
+This project automates the optimizations of variational parameters for nuclear Quantum Monte Carlo with Continuum (nQMCC).
+
+## Maintainer
+Lydia Mazeeva (WASHU)
+
+## AutoOpt Contributors
+Lydia Mazeeva (WASHU)\
+Abraham R. Flores (WASHU)\
+Juan Jose Silva (WASHU)\
+Maria Piarulli (WASHU)
+
+## Todo
+Move system file to util element\
+wse shift, wse opt value should be in sys file\
+opt scale should be in sys file\
+implement switch for optimizing target\
+add prefix for util elements\
+Refactor: AutoOpt.py, it should be main programs + api only\
+Refactor: whitespace in code\
+Documentation: add routine descriptions\
+Documentation: update readme for steps in autoopt and bscat_opt
 
 ## Usage
 

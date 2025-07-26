@@ -168,13 +168,3 @@ def create_wavefunction_input(wf_type: str) -> WavefunctionInput:
         return DeuteronWavefunctionInput()
     else:
         raise ValueError(f"Unknown wavefunction type: {wf_type}")
-    
-
-
-    
-
-# control = Control()
-# control.read_control('/Users/lydiamazeeva/QMC/nQMCC/nQMCC/external/nQMCC_Scripts/li6.ctrl')
-# control.write_control(stream=print)
-# control.update_paths('path/to/input/', 'path/to/working/')
-# control.write_control(stream=print)

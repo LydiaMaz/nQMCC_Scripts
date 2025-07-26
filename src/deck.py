@@ -38,7 +38,7 @@ class Deck:
         self.parameter_groups.append([array_name])
 
     def set_param(self, tokens):
-        if '-' in tokens[-1]:                                   # some dk files have range formatting (qsss1-2)
+        if '-' in tokens[-1]: # some dk files have range formatting (qsss1-2)
             values = list(map(float, tokens[:-1]))
             label = tokens[-1]
             prefix = ''.join(filter(str.isalpha, label))
@@ -171,16 +171,3 @@ def read_params_and_deck(param_file, deck_file):
     deck_name = os.path.splitext(os.path.basename(deck_file))[0]
 
     return deck, deck_name
-
-
-# deck, deck_name = read_params_and_deck('li6n.params', 'li6n_1hp.dk')
-# deck.write_deck(deck_name)
-
-
-
-    
-
-
-
-
-
