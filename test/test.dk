@@ -1,0 +1,70 @@
+'Beryllium-8 0+'                                  Name
+  1     0.     0.     0.     0.                   PI J MJ T MT
+  2     0     6     1                             lwf lsc l3bc lcut
+  18.0  12.0  32.0  13.0                          esep
+  .028 -.005                                      eta
+  .000  .000                                      zeta
+  1.00  0.55  1.00  0.80  1.00  1.00  1.00  1.00  fscal
+  1.00  1.30  2.00  2.00  2.00  2.00  2.00  2.00  ac
+  0.40  0.65  0.40  0.40  0.40  0.40  0.24  0.24  aa
+  0.60  0.75  2.25  2.25  4.00  4.00  0.40  0.40  ar
+  1.00  1.00  1.00  1.00  0.80  0.80  1.00  1.00  alpha
+  1.00  1.00  1.00  1.00  1.20  1.20  1.00  1.00  beta
+  70.0 -100.  4.00 -20.0  2.00 -1.00  0.    0.    gamma
+  14.0  8.00   0.00                               uur uua uuw
+  0    0     0    0    0    0    0                lfsp0 e_or_v lscat lmu1 Lmu2 LL lnodes
+  0.00  0.00  0.00  0.00  0.00  0.00              wse wsv wsr wsa wbr wba 
+  -.000375 -.00000  -.00050  -.0000  0.55  0.80   delt epsl thet upsl rscal uscal
+  0.55  0.20                                      qps1 qps2 
+  0.20  0.90                                      qsss1 qsss2
+  0.00  0.00                                      qssp1 qssp2
+  0.00  0.00                                      qspp1 qspp2
+  0.00  0.00                                      qppp1 qppp2
+1S[4]
+  0.9669
+  1  1.00  0.00  4.00  1.00  1.00  3.40  0.00  0.00  spu spv spr spa spb spc spk spl
+  1  1.20  -.20  4.00  1.00  0.15  3.40  0.00  0.00  ppu ppv ppr ppa ppb ppc ppk ppl
+  1    0     0    4    1    1    0                   lfsp e_or_v lscat lmu1 lmu2 LL lnodes
+  1.00 -24.0  4.00  1.50  0.00  1.44                 wse wsv wsr wsa wbr wba
+3P[31]
+  -.1552   
+  1  1.00  0.00  4.00  1.00  0.85  3.20  0.00  0.00  spu spv spr spa spb spc spk spl
+  1  1.20  -.20  4.00  1.00  0.25  3.40  0.00  0.00  ppu ppv ppr ppa ppb ppc ppk ppl
+  1    0     0    4    1    1    0                   lfsp e_or_v lscat lmu1 lmu2 LL lnodes
+  1.00 -25.0  4.00  1.50  0.00  1.44                 wse wsv wsr wsa wbr wba
+3D[31]
+  0.00     
+  1  1.00  0.00  4.00  1.00  0.85  3.20  0.00  0.00  spu spv spr spa spb spc spk spl
+  1  1.20  -.20  4.00  1.00  0.25  3.40  0.00  0.00  ppu ppv ppr ppa ppb ppc ppk ppl
+  1    0     0    4    1    1    0                   lfsp e_or_v lscat lmu1 lmu2 LL lnodes
+  1.00 -24.0  4.00  1.50  0.00  1.44                 wse wsv wsr wsa wbr wba
+3F[31]
+  0.00     
+  1  1.00  0.00  4.00  1.00  0.85  3.20  0.00  0.00  spu spv spr spa spb spc spk spl
+  1  1.20  -.20  4.00  1.00  0.25  3.40  0.00  0.00  ppu ppv ppr ppa ppb ppc ppk ppl
+  1    0     0    4    1    1    0                   lfsp e_or_v lscat lmu1 lmu2 LL lnodes
+  1.00 -23.0  4.00  1.50  0.00  1.44                 wse wsv wsr wsa wbr wba
+5S[22]
+  0.00     
+  1 0.00  1.00  4.20  0.80  1.00  3.40  0.00  0.00  spu spv spr spa spb spc spk spl
+  1 1.20  -.20  4.00  1.00  0.35  3.40  0.00  0.00  ppu ppv ppr ppa ppb ppc ppk ppl
+  1    0     0    4    1    1    0                  lfsp e_or_v lscat lmu1 lmu2 LL lnodes
+  1.00 -25.0  4.00  1.50  0.00  1.44                wse wsv wsr wsa wbr wba
+5D[22]
+  .1869    
+  1  0.00  1.00  4.20  0.80  1.00  3.40  0.00  0.00  spu spv spr spa spb spc spk spl
+  1  1.20  -.20  4.00  1.00  0.35  3.40  0.00  0.00  ppu ppv ppr ppa ppb ppc ppk ppl
+  1    0     0    4    1    1    0                   lfsp e_or_v lscat lmu1 lmu2 LL lnodes
+  1.00 -23.0  4.00  1.50  0.00  1.44                 wse wsv wsr wsa wbr wba
+1S[22]
+  .0687    
+  1  0.00  1.00  4.20  0.80  1.00  3.40  0.00  0.00  spu spv spr spa spb spc spk spl
+  1  1.20  -.20  4.00  1.00  0.35  3.40  0.00  0.00  ppu ppv ppr ppa ppb ppc ppk ppl
+  1    0     0    4    1    1    0                   lfsp e_or_v lscat lmu1 lmu2 LL lnodes
+  1.00 -25.0  4.00  1.50  0.00  1.44                 wse wsv wsr wsa wbr wba
+3P[211]
+  .0369
+  1  0.00  1.00  4.20  0.80  1.00  3.40  0.00  0.00  spu spv spr spa spb spc spk spl
+  1  1.20  -.20  4.00  1.00  0.45  3.40  0.00  0.00  ppu ppv ppr ppa ppb ppc ppk ppl
+  1    0     0    4    1    1    0                   lfsp e_or_v lscat lmu1 lmu2 LL lnodes
+  1.00 -23.0  4.00  1.50  0.00  1.44                 wse wsv wsr wsa wbr wba

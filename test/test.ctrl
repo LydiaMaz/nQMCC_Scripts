@@ -1,0 +1,28 @@
+'charge'                                     basis
+.true.                                       bra_eq_ket
+'variational'                                Wavefunction_type
+'nuclei/params/be8.params'                   param_file
+'nuclei/decks/Be/8/be8_0p.dk'                deck_file
+0  'kal/be8.spin'                            read_write_spin_phi  spin_file
+0  'kal/be8.ylm'  'kal/be8.phi'              read_write_ylm_phi  ylm_file  phi_file
+0  'configs/be8_av18_uix.config'             read_write_config  config_file
+0  'walks/be8_av18_uix.walk'                 read_write_walk  walk_file 
+'constants/fbn95.const'                      constants_file
+'pots/av18.2bp'  'pots/uix.3bp'              2b_file 3b_file
+1  1                                         ke  lemp
+25265137                                     dseed
+2  16  0                                     num_blocks block_size walkers_per_node
+100   10                                     burn_in num_moves_between
+1.2                                          particle_dx
+5120  128  32                                npts one_over_dx fd_factor
+40. 40. 40.                                  ss_limit sp_limit sd_limit
+40.                                          rscat
+.false.  1.6  0.01                            sample_L2 rsam psam
+0.1  20.0                                    bin_width  maxr
+0  0.  0.  1.0   0.                          lastp_sample_type lspa lspb norm norm_err
+0. 0. 0. 0. 0. 0.                            ance gam e1 v1 e2 v2
+0  'kal/be8.grp' 'kal/be8.nortab'            stop_after_group  group_file nortab_file
+1  1  1                                      nlopt_method  num_opt_walks  num_opt_evaluations
+'nuclei/opt/Be/8/be8_0p.opt'                 optimization_input 
+'min/opt_be8_0p_av18_uix.dk'                 optimized_deck
+'scratch/'                                   scratch_dir
