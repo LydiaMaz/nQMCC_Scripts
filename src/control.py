@@ -1,170 +1,165 @@
-import os
-
-from wavefunction_input import WavefunctionInput, VariationalWavefunctionInput, ProductWavefunctionInput, DeuteronWavefunctionInput
-
-# Class to group control parameters together
-class ControlGroup:
-    def __init__(self, owner, param_names):
-        self.owner = owner
-        self.param_names = param_names
-
-    def write_output(self, stream=None):
-        if stream is None:
-            stream = print
-        values = []
-        labels = []
-        for param in self.param_names:
-            val = self.owner.get(param, '')
-            if isinstance(val, WavefunctionInput): # if it's a wavefunction input, skip it
-                continue
-            values.append(str(val))
-            labels.append(param)
-        if not values:  # skip empty groups
-            return
-        values_str = "  ".join(values)
-        label_str = "  ".join(labels)
-        spacing = max(80, len(values_str) + 2)
-        line = f"{values_str:<{spacing}}{label_str}"
-        stream(line.rstrip() + "\n")
-
-# Class to read and write the control file
-class Control:
-
-    int_values = {
-        'read_write_walk', 
-        'ke', 'lemp',
-        'rng_seed',
-        'num_blocks', 'block_size',
-        'burn_in', 'num_moves_between',
-        'npts', 'one_over_dx', 'fd_factor',
-        'lastp_sample_type',
-        'stop_after_group',
-        'nlopt_method',  'num_opt_walks',  'num_opt_evaluations', 'walkers_per_node'
-    }
-
-    strings = {
-        'basis', 'walk_file', 'constants_file', '2b_file', '3b_file', 'group_file', 'nortab_file', 'optimization_input', 'optimized_deck', 'scratch_dir'
-    }
-
-    boolean_values = {
-        'bra_eq_ket', 'sample_L2'
-    }
-
-
-    def __init__(self):
-        self.Name = ""
-        self.parameters = {}
-        self.sections = [] # stores ControlGroup or WavefunctionInput objects
-
-    # helper functions
-    def parse_group(self, group, tokens):
-        for key, value in zip(group, tokens):
-            if key in self.int_values:
-                parsed = int(value)
-            elif key in self.strings:
-                parsed = str(value)
-            elif key in self.boolean_values:
-                val = value.strip().lower()
-                parsed = val
-            else:
-                parsed = float(value)
-            self.parameters[key] = parsed
-
-    def set_param(self, tokens):
-        if len(tokens) % 2 != 0:            
-            tokens.append('blank')                # pad with a blank string for consistency ('ance reg_flag gam e1 v1 e2 v2' line has 8 values but 7 param names)
-        values = tokens[:len(tokens) // 2]        # first half are values
-        keys = tokens[len(tokens) // 2:]          # second half are parameter names
-        self.parse_group(keys, values)
-        self.sections.append(ControlGroup(self.parameters, keys))
-
-
-    def read_control(self, control_file):
-        with open(control_file, 'r') as f:
-            lines = [line.strip() for line in f if line.strip()]
-            self.Name = os.path.splitext(os.path.basename(control_file))[0]
-
-        # Phase 1: Read initial control lines
-        index = 0
-        for _ in range(2):                                         
-            tokens = lines[index].split()
-            self.set_param(tokens)
-            index += 1
-
-        # Phase 2: Handle wavefunction(s)
-        def read_wavefunction_block(start_line, label='wf'):
-            wf_type = lines[start_line].split()[0]
-            wf_type_key = f"{label}_type"
-            self.parameters[wf_type_key] = wf_type
-            self.sections.append(ControlGroup(self.parameters, [wf_type_key]))
-            wf = create_wavefunction_input(wf_type)
-            end_line = wf.read_wavefunction_input(lines, start_line + 1)
-
-            self.parameters[label] = wf  # store wavefunction object directly
-            self.sections.append(ControlGroup(self.parameters, [label]))  # keep section info for writing
-            self.sections.append(wf)
-            return end_line
-
-        if self.parameters.get('bra_eq_ket') == '.false.':
-            index = read_wavefunction_block(index, label='ket')
-            index = read_wavefunction_block(index, label='bra')
+"""
+control.py
+Control Files for nQMCC
+"""
+#-----------------------------------------------------------------------
+class wavefunction_input_t:
+#-----------------------------------------------------------------------
+    def __init__(self,wf_type,list_wf_input,ridx=0):
+        match wf_type.strip("\'"):
+#-----------------------------------------------------------------------
+            case "variational":
+#-----------------------------------------------------------------------
+                self.PARAM_FILE=list_wf_input[0][0]
+                self.DECK_FILE =list_wf_input[1][0]
+                self.RW_SPIN,self.SPIN_FILE=list_wf_input[2][:2]
+                self.RW_YLM_PHI,self.YLM_FILE,self.PHI_FILE=list_wf_input[3][:3]
+                self.RW_CONFIG,self.CONFIG_FILE=list_wf_input[4][:2]
+                self.IDX=5
+#-----------------------------------------------------------------------
+            case "product":
+#-----------------------------------------------------------------------
+                self.PRODUCT_PARAM_FILE=list_wf_input[0][0]
+                self.PRODUCT_DEC_FILE=list_wf_input[1][0]
+                self.PARAM_FILE =list_wf_input[2][0]
+                self.DECK_FILE  =list_wf_input[3][0]
+                self.RW_SPIN,self.SPIN_FILE=list_wf_input[4][:2]
+                self.RW_YLM_PHI,self.YLM_FILE,self.PHI_FILE=list_wf_input[5][:3]
+                self.RW_CONFIG,self.CONFIG_FILE=list_wf_input[6][:2]
+                self.IDX=7
+#-----------------------------------------------------------------------
+            case _:
+#-----------------------------------------------------------------------
+                self.IDX=0
+#-----------------------------------------------------------------------
+    def Write(self,wf_type,file):
+        match wf_type.strip("\'"):
+#-----------------------------------------------------------------------
+            case "variational":
+#-----------------------------------------------------------------------
+                file.write(self.PARAM_FILE+"\n")
+                file.write(self.DECK_FILE+"\n")
+                file.write(" ".join([self.RW_SPIN,self.SPIN_FILE])+"\n")
+                file.write(" ".join([self.RW_YLM_PHI,self.YLM_FILE,self.PHI_FILE])+"\n")
+                file.write(" ".join([self.RW_CONFIG,self.CONFIG_FILE])+"\n")
+#-----------------------------------------------------------------------
+            case "product":
+#-----------------------------------------------------------------------
+                file.write(self.PRODUCT_PARAM_FILE+"\n")
+                file.write(self.PRODUCT_DEC_FILE+"\n")
+                file.write(self.PARAM_FILE+"\n")
+                file.write(self.DECK_FILE+"\n")
+                file.write(" ".join([self.RW_SPIN,self.SPIN_FILE])+"\n")
+                file.write(" ".join([self.RW_YLM_PHI,self.YLM_FILE,self.PHI_FILE])+"\n")
+                file.write(" ".join([self.RW_CONFIG,self.CONFIG_FILE])+"\n")
+#-----------------------------------------------------------------------
+            case _:
+#-----------------------------------------------------------------------
+                pass
+#-----------------------------------------------------------------------
+    def AddPrefix(self,wf_type,prefix):
+#-----------------------------------------------------------------------
+        self.PARAM_FILE =JoinPath(prefix,self.PARAM_FILE)
+        self.DECK_FILE  =JoinPath(prefix,self.DECK_FILE)
+        self.SPIN_FILE  =JoinPath(prefix,self.SPIN_FILE)
+        self.YLM_FILE   =JoinPath(prefix,self.YLM_FILE)
+        self.PHI_FILE   =JoinPath(prefix,self.PHI_FILE)
+        self.CONFIG_FILE=JoinPath(prefix,self.CONFIG_FILE)
+#-----------------------------------------------------------------------
+        if wf_type.strip("\'") == "product":
+            self.PRODUCT_PARAM_FILE=JoinPath(prefix,self.PRODUCT_PARAM_FILE)
+            self.PRODUCT_DECK_FILE =JoinPath(prefix,self.PRODUCT_DECK_FILE )
+#-----------------------------------------------------------------------
+class control_t:
+#-----------------------------------------------------------------------
+    def __init__(self,file_name_,prefix=""):
+#-----------------------------------------------------------------------
+        self.FILE_NAME = file_name_
+        self.Read()
+        self.AddPrefix(prefix)
+#-----------------------------------------------------------------------
+    def Read(self):
+#-----------------------------------------------------------------------
+        file = open(self.FILE_NAME.strip("\'"), 'r')
+        data = [(l.strip().split()) for l in file.readlines()]
+        file.close()
+#----------------------------------------------------------------------
+        self.BASIS=data[0][0]
+        self.BRA_EQ_KET=data[1][0]
+        self.BRA_TYPE=data[2][0]
+#----------------------------------------------------------------------
+        self.INPUT_BRA=wavefunction_input_t(self.BRA_TYPE,data[3:10])
+        data=data[3+self.INPUT_BRA.IDX:]
+#----------------------------------------------------------------------
+        if (self.BRA_EQ_KET != ".true."):
+#----------------------------------------------------------------------
+            self.KET_TYPE=data[0][0]
+            self.INPUT_KET=wavefunction_input_t(self.KET_TYPE,data[1:8])
+            data=data[1+self.INPUT_KET.IDX:]
         else:
-            index = read_wavefunction_block(index, label='wf')
-
-        # Phase 3: Read the rest of control parameters
-        while index < len(lines):
-            tokens = lines[index].split()
-            self.set_param(tokens)
-            index += 1
-
-    # Write the control file in-place
-    def write_control(self, stream=None):
-        if stream is None:
-            filename = f"{self.Name}.ctrl" 
-            with open(filename, 'w') as f:
-                for section in self.sections:
-                    section.write_output(stream=f.write)
-        else:
-            for section in self.sections:
-                section.write_output(stream=stream)
-
-    # Update paths in the control file
-    def update_paths(self, input_dir, working_dir):
-        # Update global string paths
-        for key in self.strings:
-            val = self.parameters.get(key)
-
-            if not isinstance(val, str):
-                continue
-
-            stripped = val.strip("'\"")
-
-            # Special case: optimized_deck should go to working_dir
-            if key == 'optimized_deck':
-                self.parameters[key] = f"'{os.path.join(working_dir, stripped)}'"
-                continue  # Skip rest of loop to avoid overwriting
-
-            # Skip basis (as per your logic)
-            if key == 'basis':
-                continue
-
-            self.parameters[key] = f"'{os.path.join(input_dir, stripped)}'"
-
-        # Update wavefunction (wf, bra, ket) paths
-        for label in ['wf', 'bra', 'ket']:
-            wf = self.parameters.get(label)
-            if isinstance(wf, WavefunctionInput):
-                wf.resolve_paths(input_dir)
-
-
-
-# helper function to create wavefunction input based on type
-def create_wavefunction_input(wf_type: str) -> WavefunctionInput:
-    if wf_type == "'variational'":
-        return VariationalWavefunctionInput()
-    elif wf_type == "'product'":
-        return ProductWavefunctionInput()
-    elif wf_type == "'deuteron'":
-        return DeuteronWavefunctionInput()
-    else:
-        raise ValueError(f"Unknown wavefunction type: {wf_type}")
+            self.KET_TYPE=self.BRA_TYPE
+            self.INPUT_KET=self.INPUT_BRA
+#----------------------------------------------------------------------
+        self.RW_WALK,self.WALK_FILE=data[0][:2]
+        self.CONST_FILE=data[1][0]
+        self.L2BP_FILE,self.L3BP_FILE=data[2][:2]
+        self.LKE,self.LEMP=data[3][:2]
+        self.RNG_SEED=data[4][0]
+        self.NUM_BLOCKS,self.BLOCK_SIZE,self.NUM_WALKERS_PER_NODE=data[5][:3]
+        self.BURN_IN_COUNT,self.NUM_MOVES_BETWEEN=data[6][:2]
+        self.PARTICLE_MAX_DX=data[7][0]
+        self.NPTS,self.NPTS_IN_ONE_FERMI,self.FD_FACTOR=data[8][:3]
+        self.SS_LIMIT,self.SP_LIMIT,self.SD_LIMIT=data[9][:3]
+        self.BOX_SIZE=data[10][0]
+        self.SAMPLE_L2,self.RSAM,self.PSAM=data[11][:3]
+        self.BIN_WIDTH,self.BIN_MAXR=data[12][:2]
+        self.LASTP_SAMPLE_TYPE,self.LPS_A,self.LPS_B,self.EXTRA_NORM,self.EXTRA_NORM_ERROR=data[13][:5]
+        self.ANC_ENERGY,self.REG_GAMMA,self.ECLSTR1,self.DCLSTR1,self.ECLSTR2,self.DCLSTR2=data[14][:6]
+        self.DO_GROUP,self.GROUP_FILE,self.NORTAB_FILE=data[15][:3]
+        self.NLOPT_METHOD,self.NUM_OPT_WALKS,self.NUM_OPT_EVALUATIONS=data[16][:3]
+        self.OPTIMIZATION_INPUT_FILE=data[17][0]
+        self.OPTIMIZED_DECK_FILE=data[18][0]
+        self.SCRATCH_DIR=data[19][0]
+#-----------------------------------------------------------------------
+    def Write(self, out_file):
+        file = open(out_file.strip("\'"), 'w')
+        file.write(self.BASIS+"\n")
+        file.write(self.BRA_EQ_KET+"\n")
+        file.write(self.BRA_TYPE+"\n")
+        self.INPUT_BRA.Write(self.BRA_TYPE,file)
+#----------------------------------------------------------------------
+        if (not self.BRA_EQ_KET):
+#----------------------------------------------------------------------
+            file.write(self.KET_TYPE+"\n")
+            self.INPUT_KET.Write(self.KET_TYPE,file)
+#----------------------------------------------------------------------
+        file.write(" ".join([self.RW_WALK,self.WALK_FILE])+"\n")
+        file.write(self.CONST_FILE+"\n")
+        file.write(" ".join([self.L2BP_FILE,self.L3BP_FILE])+"\n")
+        file.write(" ".join([self.LKE,self.LEMP])+"\n")
+        file.write(self.RNG_SEED+"\n")
+        file.write(" ".join([self.NUM_BLOCKS,self.BLOCK_SIZE,self.NUM_WALKERS_PER_NODE])+"\n")
+        file.write(" ".join([self.BURN_IN_COUNT,self.NUM_MOVES_BETWEEN])+"\n")
+        file.write(self.PARTICLE_MAX_DX+"\n")
+        file.write(" ".join([self.NPTS,self.NPTS_IN_ONE_FERMI,self.FD_FACTOR])+"\n")
+        file.write(" ".join([self.SS_LIMIT,self.SP_LIMIT,self.SD_LIMIT])+"\n")
+        file.write(self.BOX_SIZE+"\n")
+        file.write(" ".join([self.SAMPLE_L2,self.RSAM,self.PSAM])+"\n")
+        file.write(" ".join([self.BIN_WIDTH,self.BIN_MAXR])+"\n")
+        file.write(" ".join([self.LASTP_SAMPLE_TYPE,self.LPS_A,self.LPS_B,self.EXTRA_NORM,self.EXTRA_NORM_ERROR])+"\n")
+        file.write(" ".join([self.ANC_ENERGY,self.REG_GAMMA,self.ECLSTR1,self.DCLSTR1,self.ECLSTR2,self.DCLSTR2])+"\n")
+        file.write(" ".join([self.DO_GROUP,self.GROUP_FILE,self.NORTAB_FILE])+"\n")
+        file.write(" ".join([self.NLOPT_METHOD,self.NUM_OPT_WALKS,self.NUM_OPT_EVALUATIONS])+"\n")
+        file.write(self.OPTIMIZATION_INPUT_FILE+"\n")
+        file.write(self.OPTIMIZED_DECK_FILE+"\n")
+        file.write(self.SCRATCH_DIR)
+        file.close()
+#----------------------------------------------------------------------
+    def AddPrefix(self,prefix):
+        self.WALK_FILE=JoinPath(prefix,self.WALK_FILE)
+        self.INPUT_BRA.AddPrefix(self.BRA_TYPE,prefix)
+        if not self.BRA_EQ_KET: self.INPUT_KET.AddPrefix(self.KET_TYPE,prefix)
+#----------------------------------------------------------------------
+def JoinPath(p1,p2):
+    return f"\'{p1.strip("\'")}{p2.strip("\'")}\'"
+#----------------------------------------------------------------------
