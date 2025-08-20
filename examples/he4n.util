@@ -1,6 +1,20 @@
-/Users/lydiamazeeva/QMC/nQMCC/nQMCC/external/nQMCC_Scripts       working_dir
-/Users/lydiamazeeva/QMC/nQMCC/nQMCC                              input_dir        
-/Users/lydiamazeeva/QMC/nQMCC/nQMCC/ctrl/he4_copy.ctrl           target_file
-/Users/lydiamazeeva/QMC/nQMCC/nQMCC/ctrl/he4n_copy.ctrl          scattering_file
-/Users/lydiamazeeva/QMC/nQMCC/nQMCC/build/bin                    binary_dir
-mpirun -np 8                                                     run_cmd
+he4n_1hp                                          name
+sc_scattering                                     system_type
+mpirun -np 4                             
+/home/floresab/Projects/qmc/nQMCC/                nqmcc_dir
+/home/floresab/Projects/qmc/nQMCC/build/bin/      bin_dir
+/home/floresab/Projects/qmc/py/ao/                working_dir
+/home/floresab/Projects/qmc/nQMCC/ctrl/he4.ctrl   ctrl
+1                                                 num_pots
+fbn95.const                                       constant_file
+av18.2bp                                          2b_potential_files
+none.3bp                                          3b_potential_files
+4 250000  0                                       num_blocks block_size walkers_per_node
+0.2 50                                            opt_scale   num_opt_samples
+1                                                 num_channels
+/home/floresab/Projects/qmc/nQMCC/ctrl/he4n.ctrl  scattering_ctrl
+0                                                 ss_idx
+0                                                 optimize_target
+0.5 6.0 0.25                                      ELB EUB DE
+0. 0.01  10.                                      init_b init_db max_bscat_slope
+40                                                max_scan_count
