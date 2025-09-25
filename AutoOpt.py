@@ -25,7 +25,7 @@ def SingleChannelScattering(util: utility_t):
         os.chdir(util.WORKING_DIR)
     except FileExistsError:
         print("***WORKING DIRECTORY EXISTS***")
-        util.WORKING_DIR=f"{util.WORKING_DIR}{util.NAME}-{"_".join(str(datetime.now()).split())}/"
+        util.WORKING_DIR=f"{util.WORKING_DIR}{util.NAME}-{datetime.now().strftime('%Y-%m-%d_%H-%M')}/"
         print(f"CURRENT WORKING DIRECTORY: {util.WORKING_DIR}")
         os.mkdir(util.WORKING_DIR)
         os.chdir(util.WORKING_DIR)

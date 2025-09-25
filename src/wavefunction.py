@@ -22,8 +22,12 @@ class wavefunction_t:
     def Evaluate(self,write_log,log_name):
         log = nQMCC("energy", self.CTRL, self.BIN_DIR, self.RUN_CMD, write_log, log_name)
         rx=r'H\s*=\s*(-?\d+\.\d+)\s*\((\d+\.\d+)\)'
-        energy,var = findall(rx, log)[-1]
-        return float(energy),float(var)
+        try:
+            energy_str,var_str = findall(rx, log)[-1]
+            return float(energy_str),float(var_str)
+        except IndexError:
+            print("***Warning Evaluate did not find a valid energy***")
+            return None, None
 #-----------------------------------------------------------------------
     def Optimize(self,opt: deck_t,odk_file_name,write_log,log_name):
         opt.Write(self.PARAMS,opt.FILE_NAME)
@@ -33,8 +37,12 @@ class wavefunction_t:
         self.DK=deck_t(self.PARAMS,self.CTRL.OPTIMIZED_DECK_FILE)
         self.CTRL.INPUT_BRA.DECK_FILE=self.CTRL.OPTIMIZED_DECK_FILE
         rx=r' OPTIMIZED ENERGY: (-?\d+\.\d+) \((\d+\.\d+)\)'
-        opt_e,opt_v = findall(rx, log)[-1]
-        return float(opt_e),float(opt_v)
+        try:
+            opt_e_str,opt_v_str = findall(rx, log)[-1]
+            return float(opt_e_str),float(opt_v_str)
+        except IndexError:
+            print("***Warning Optimize did not find a valid energy***")
+            return None, None
 #-----------------------------------------------------------------------
 def InitPShellScattWF(scatter: wavefunction_t,target: wavefunction_t,out_file):
     for key,val in target.DK.__dict__.items():

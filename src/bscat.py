@@ -86,7 +86,27 @@ def SingleChannelOptimize(bscat:float, \
     print(BREAK)
     log=f"{work_dir}logs/{label}.start.{bscat:.4f}"
     print(f"BEGIN INITIAL EVALUATION: {log}.energy")
-    e,v=scatter.Evaluate(True,log)
+    e,v=scatter.Evaluate(True,log) # if e == None => try to find valid wse
+#-----------------------------------------------------------------------
+    wse_iter  = 0
+    wse_iter2 = 0
+    inital_wse=float(scatter.DK.SS[ssi].WSE)
+    while (e == None) and (wse_iter < 100):
+        wse_iter += 1
+        wse = inital_wse - 0.1*wse_iter
+        if (wse < 0):
+            wse_iter2 += 1
+            wse = inital_wse + 0.1*wse_iter2
+        print(f" NANs ENCOUNTERED => SEARCHING FOR A VALID WSE: {scatter.DK.SS[ssi].WSE} --> {wse}")
+        scatter.DK.SS[ssi].WSE = str(float(wse))
+        scatter.DK.Write(scatter.PARAMS,scatter.DK.FILE_NAME)
+        log=f"{work_dir}logs/{label}.start.{bscat:.4f}"
+        print(f"BEGIN ITERATION {wse_iter}: {log}.energy")
+        e,v=scatter.Evaluate(True,log)
+#-----------------------------------------------------------------------
+    if e == None: raise RuntimeError
+    print(BREAK)
+#-----------------------------------------------------------------------
     e_start=e-ecore
     v_start=np.sqrt(v**2+vcore**2)
     print(f" ⚛ EREL = {e_start:.4f} +- {v_start:.4f}")
@@ -118,7 +138,7 @@ def SingleChannelOptimize(bscat:float, \
     print(f"CORRELATION OPTIMIZATION LOWERED ENERGY BY: {corr_erel-wse_erel:.4f} MeV")
 #-----------------------------------------------------------------------
     log=f"{work_dir}logs/{label}.all.{bscat:.4f}"
-    print(f"BEGIN CORRELATION OPTIMIZATION: {log}.optimize")
+    print(f"BEGIN WSE+CORRELATION OPTIMIZATION: {log}.optimize")
     opt_all_file_name=f"\'{work_dir}opt/{label}.all.{bscat:.4f}.opt\'"
     opt_all=GenerateOptFile(scatter.PARAMS, scatter.DK, opt_all_file_name,instructions_all)
     opt_all.UpdateFloats(scatter.PARAMS,6)
@@ -178,9 +198,11 @@ def DirectionalScan(direction,\
 #-----------------------------------------------------------------------
         de=dscan[idx]["EREL"]-erel_prev
 #-----------------------------------------------------------------------
-        db_de=db/abs(de)
+        db = (dscan[idx]["BSCAT"] - bscat_prev) / direction # update db to be a stable step
+        bscat_prev = dscan[idx]["BSCAT"]    # update bscat_prev using what the optimizer had to use
 #-----------------------------------------------------------------------
-        bscat_prev=bscat
+        db_de=db/abs(de)    # now an updated db/de
+#-----------------------------------------------------------------------
         erel_prev=dscan[idx]["EREL"]
 #-----------------------------------------------------------------------
         idx+=1
