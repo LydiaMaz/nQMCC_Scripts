@@ -149,7 +149,7 @@ class control_t:
         file.write(" ".join([self.LASTP_SAMPLE_TYPE,self.LPS_A,self.LPS_B,self.EXTRA_NORM,self.EXTRA_NORM_ERROR])+"\n")
         file.write(" ".join([self.ANC_ENERGY,self.REG_GAMMA,self.ECLSTR1,self.DCLSTR1,self.ECLSTR2,self.DCLSTR2])+"\n")
         file.write(" ".join([self.DO_GROUP,self.GROUP_FILE,self.NORTAB_FILE])+"\n")
-        file.write(" ".join([self.NLOPT_METHOD,self.NUM_OPT_WALKS,self.NUM_OPT_EVALUATIONS])+"\n")
+        file.write(" ".join([self.NLOPT_METHOD,self.NUM_OPT_WALKS,str(self.NUM_OPT_EVALUATIONS)])+"\n")
         file.write(self.OPTIMIZATION_INPUT_FILE+"\n")
         file.write(self.OPTIMIZED_DECK_FILE+"\n")
         file.write(self.SCRATCH_DIR)

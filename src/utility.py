@@ -38,7 +38,7 @@ class utility_t:
         self.TWO_BODY_FILES=data[9][:self.NUM_POTS]
         self.THREE_BODY_FILES=data[10][:self.NUM_POTS]
         self.NUM_BLOCKS,self.BLOCK_SIZE,self.WALKERS_PER_NODE=data[11][:3]
-        self.OPT_SCALE,self.NUM_OPT_EVALUATIONS=[float(data[12][0]),data[12][1]]
+        self.OPT_SCALE,self.NUM_OPT_EVALUATIONS=[float(data[12][0]),int(data[12][1])]
 #-----------------------------------------------------------------------
         if self.SYSTEM_TYPE.lower() == "sc_scattering":
             data=data[13:]
