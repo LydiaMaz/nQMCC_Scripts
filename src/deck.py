@@ -266,7 +266,7 @@ def GenerateOptFile(params: parameters_t, dk_: deck_t, file_name, instructions: 
                 opt.SS[i["ss_idx"]].__dict__[i["key"]]=str(float(dk_.SS[i["ss_idx"]].__dict__[i["key"]])*i["scale"]+i["flat"])
             else:
                 if isinstance(opt.__dict__[i["key"]],list):
-                    if i["all"]:
+                    if i.get("all", False):  # Default to False if "all" key doesn't exist
                         opt.__dict__[i["key"]]=[str(float(v)*i["scale"]+i["flat"]) for v in dk_.__dict__[i["key"]]]
                     else:
                         opt.__dict__[i["key"]][i["idx"]]=str(float(dk_.__dict__[i["key"]][i["idx"]])*i["scale"]+i["flat"])
