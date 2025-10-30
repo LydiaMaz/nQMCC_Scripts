@@ -15,6 +15,67 @@ from utility import utility_t
 from wavefunction import wavefunction_t,InitPShellScattWF
 from bscat import SingleChannelScan
 #-----------------------------------------------------------------------
+def BoundStates(util: utility_t):
+#-----------------------------------------------------------------------
+    BREAK="="*72
+#-----------------------------------------------------------------------
+    print("SETTING UP WORKING ENVIORMENT")
+    try:
+        os.mkdir(util.WORKING_DIR)
+        os.chdir(util.WORKING_DIR)
+    except FileExistsError:
+        print("***WORKING DIRECTORY EXISTS***")
+        util.WORKING_DIR=f"{util.WORKING_DIR}{util.NAME}-{datetime.now().strftime('%Y-%m-%d_%H-%M')}/"
+        print(f"CURRENT WORKING DIRECTORY: {util.WORKING_DIR}")
+        os.mkdir(util.WORKING_DIR)
+        os.chdir(util.WORKING_DIR)
+#-----------------------------------------------------------------------
+    os.mkdir("ctrl")
+    os.mkdir("logs")
+    os.mkdir("dk")
+    os.mkdir("opt")
+#-----------------------------------------------------------------------
+    print("... DONE")
+    print(BREAK)
+#-----------------------------------------------------------------------
+    print("SETTING UP TARGET WAVEFUNCTION")
+    target = wavefunction_t(util.CTRL_FILE,util.NQMCC_DIR,util.BIN_DIR,util.RUN_CMD)
+    target_label=target.DK.NAME.strip("\'")
+    target.CTRL.FILE_NAME=f"{util.WORKING_DIR}target.ctrl"
+    target.CTRL.NUM_BLOCKS=util.NUM_BLOCKS
+    target.CTRL.BLOCK_SIZE=util.BLOCK_SIZE
+    target.CTRL.WALKERS_PER_NODE=util.WALKERS_PER_NODE
+    target.CTRL.NUM_OPT_EVALUATIONS=util.NUM_OPT_EVALUATIONS
+    print("... DONE")
+    print(BREAK)
+#-----------------------------------------------------------------------
+    for const,pot2b,pot3b in zip(util.CONSTANTS_FILES,util.TWO_BODY_FILES,util.THREE_BODY_FILES):
+        pot2b_label=pot2b.split(".")[0]
+        pot3b_label=pot3b.split(".")[0]
+        tname=f"{target_label}.{pot2b_label}.{pot3b_label}"
+        target.CTRL.CONST_FILE=f"'{util.NQMCC_DIR}constants/{const}'"
+        target.CTRL.L2BP_FILE=f"'{util.NQMCC_DIR}pots/{pot2b}'"
+        target.CTRL.L3BP_FILE=f"'{util.NQMCC_DIR}pots/{pot3b}'"
+        print(f"CONSTANTS: {const}")
+        print(f"V2B: {pot2b}")
+        print(f"V3B: {pot3b}")
+        print(BREAK)
+#-----------------------------------------------------------------------
+        
+        print(f"EVALUATING TARGET: {tname}")
+        ecore,vcore=target.Evaluate(True,tname)
+        print(f"E = {ecore:.4f} +- {vcore:.4f}")
+
+#-----------------------------------------------------------------------
+        print(BREAK)
+#-----------------------------------------------------------------------
+# 1. initialize target wave function
+# 2. loop over potentials
+# 3. set up optimization file
+# 4. optimize the wave function
+# 5. evaluate energy 
+# 6. log results
+
 def SingleChannelScattering(util: utility_t):
 #-----------------------------------------------------------------------
     BREAK="="*72
@@ -100,7 +161,7 @@ def AutoOptAPI(util: utility_t):
 #-----------------------------------------------------------------------
     match util.SYSTEM_TYPE.lower():
         case "bound":
-            print("todo")
+            BoundStates(util)
         case "sc_scattering":
             SingleChannelScattering(util)
 #-----------------------------------------------------------------------
