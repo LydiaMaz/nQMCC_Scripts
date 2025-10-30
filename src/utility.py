@@ -50,6 +50,10 @@ class utility_t:
             self.INITIAL_BSCAT,self.INITIAL_DELTA_BSCAT,self.MAX_BSCAT_SLOPE=[float(d) for d in data[5][:3]]
             self.MAX_SCAN_COUNT=int(data[6][0])
 #-----------------------------------------------------------------------
+        if self.SYSTEM_TYPE.lower() == "bound":
+            data=data[13:]
+            self.ESEP_SCALE = float(data[0][0])
+#-----------------------------------------------------------------------
 def nQMCC(binary: str, ctrl: control_t, bin_dir: str, runner: list, write_log=False, log_name=""):
         cmd = f"{" ".join(runner)} {bin_dir}{binary}".split()
         ctrl.Write(ctrl.FILE_NAME)
