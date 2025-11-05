@@ -34,6 +34,8 @@ def setup(util: utility_t):
     print(BREAK)
 #-----------------------------------------------------------------------
     print("SETTING UP TARGET WAVEFUNCTION")
+    # Ensure required nQMCC directories exist
+    os.makedirs(f"{util.NQMCC_DIR}walks", exist_ok=True)
     target = wavefunction_t(util.CTRL_FILE,util.NQMCC_DIR,util.BIN_DIR,util.RUN_CMD)
     target_label=target.DK.NAME.strip("\'")
     target.CTRL.FILE_NAME=f"{util.WORKING_DIR}target.ctrl"
