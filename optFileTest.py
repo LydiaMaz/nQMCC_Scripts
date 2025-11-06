@@ -152,13 +152,12 @@ def BoundStateOptimize(target: wavefunction_t, util: utility_t, label: str):
                                 "flat": 0.0
                             }
                             instructions_ss.append(instruction)
-                            print(f"  {attr}: {value} -> Added to optimization")
+                            # print(f"  {attr}: {value} -> Added to optimization")
                         else:
                             print(f"  {attr}: {value} (skipped - not float)")
                     except Exception as e:
                         print(f"  {attr}: <could not access: {e}>")
 
-    
     # Combined instructions for final optimization
     instructions_all = instructions_esep + instructions_corr + instructions_ss
     
@@ -281,64 +280,3 @@ if __name__ == '__main__':
     print("TEST COMPLETED SUCCESSFULLY!")
     print("="*72)
 #-----------------------------------------------------------------------
-# if __name__ == '__main__':
-#     import argparse
-    
-#     parser = argparse.ArgumentParser(
-#         description="Test bound state optimization using ESEP parameters",
-#         epilog="Example: python3 optFileTest.py --utility examples/he4.util"
-#     )
-#     parser.add_argument('--utility', required=True, help="Path to utility file")
-#     args = parser.parse_args()
-    
-#     util = utility_t(args.utility)
-#     target = setup(util)
-#     opt_scale = util.OPT_SCALE
-    
-#     print(f"SS is a list with {len(target.DK.SS)} spatial_symmetry_t objects:")
-    
-#     # Generate SS instructions if SS objects exist
-#     instructions_ss = []
-#     if len(target.DK.SS) > 0:
-#         print("Generating SS instructions for float attributes...")
-        
-#         # Define SS float attributes that can be optimized (based on spatial_symmetry_t class)
-#         ss_float_attrs = [
-#             "SPU", "SPV", "SPR", "SPA", "SPB", "SPC", "SPK", "SPL",  # SP correlations
-#             "PPU", "PPV", "PPR", "PPA", "PPB", "PPC", "PPK", "PPL",  # PP correlations (if NPPART >= 2)
-#             "WSE", "WSV", "WSR", "WSA", "WBRHO", "WBALPH",            # Woods-Saxon parameters
-#             "SDU", "SDV", "SDR", "SDA", "SDB", "SDC", "SDK", "SDL",  # SD correlations (if NDPART != 0)
-#             "PDU", "PDV", "PDR", "PDA", "PDB", "PDC", "PDK", "PDL",  # PD correlations (if NDPART != 0)
-#             "DDU", "DDV", "DDR", "DDA", "DDB", "DDC", "DDK", "DDL",  # DD correlations (if NDPART >= 2)
-#             "D_WSE", "D_WSV", "D_WSR", "D_WSA", "D_WBRHO", "D_WBALPH"  # D Woods-Saxon (if NDPART != 0)
-#         ]
-        
-#         for ss_idx, ss_obj in enumerate(target.DK.SS):
-#             print(f"\n--- SS[{ss_idx}] float attributes for optimization ---")
-#             for attr in ss_float_attrs:
-#                 if hasattr(ss_obj, attr):
-#                     try:
-#                         value = getattr(ss_obj, attr)
-#                         # Check if it's a float-like string (contains decimal point)
-#                         if isinstance(value, str) and "." in value:
-#                             instruction = {
-#                                 "ss": True,
-#                                 "ss_idx": ss_idx,
-#                                 "key": attr,
-#                                 "scale": opt_scale,
-#                                 "flat": 0.0
-#                             }
-#                             instructions_ss.append(instruction)
-#                             print(f"  {attr}: {value} -> Added to optimization")
-#                         else:
-#                             print(f"  {attr}: {value} (skipped - not float)")
-#                     except Exception as e:
-#                         print(f"  {attr}: <could not access: {e}>")
-    
-#     print(f"\n{len(instructions_ss)} SS instructions generated:")
-#     for i, instr in enumerate(instructions_ss):
-#         print(f"  [{i}] SS[{instr['ss_idx']}].{instr['key']} (scale: {instr['scale']})")
-    
-#     print("="*72)
-#     print("TEST COMPLETED SUCCESSFULLY!")
-#     print("="*72)
