@@ -54,9 +54,9 @@ def setup_main_directory(util: utility_t):
             "num_blocks": util.NUM_BLOCKS,
             "block_size": util.BLOCK_SIZE,
             "walkers_per_node": util.WALKERS_PER_NODE,
-            "opt_scale": util.OPT_SCALE,
-            "num_opt_evaluations": util.NUM_OPT_EVALUATIONS,
-            "esep_scale": util.ESEP_SCALE
+            "base_opt_scale": util.OPT_SCALE,           # Base values from util file
+            "base_num_opt_evaluations": util.NUM_OPT_EVALUATIONS,
+            "base_esep_scale": util.ESEP_SCALE
         }
     }
     
@@ -71,7 +71,16 @@ def setup_potential_pair_directory(util: utility_t, pot_pair_name: str, pot_inde
     """Set up directory structure for a specific potential pair"""
     pot_dir = f"{util.WORKING_DIR}{pot_pair_name}/"
     
+    # Get potential-specific parameters
+    scales = get_potential_specific_scales(pot_pair_name, util)
+    
     print(f"Setting up potential pair directory: {pot_pair_name}")
+    print(f"  Using potential-specific parameters:")
+    print(f"    {scales['multiplier_info']}")
+    print(f"    ESEP scale: {scales['esep_scale']} (util: {util.ESEP_SCALE})")
+    print(f"    OPT scale: {scales['opt_scale']} (util: {util.OPT_SCALE})")
+    print(f"    Evaluations: {scales['num_evaluations']} (util: {util.NUM_OPT_EVALUATIONS})")
+    
     os.makedirs(pot_dir, exist_ok=True)
     os.makedirs(f"{pot_dir}ctrl", exist_ok=True)
     os.makedirs(f"{pot_dir}logs", exist_ok=True) 
@@ -88,7 +97,7 @@ def setup_potential_pair_directory(util: utility_t, pot_pair_name: str, pot_inde
     target.CTRL.NUM_BLOCKS = util.NUM_BLOCKS
     target.CTRL.BLOCK_SIZE = util.BLOCK_SIZE
     target.CTRL.WALKERS_PER_NODE = util.WALKERS_PER_NODE
-    target.CTRL.NUM_OPT_EVALUATIONS = util.NUM_OPT_EVALUATIONS
+    target.CTRL.NUM_OPT_EVALUATIONS = scales['num_evaluations']  # Use potential-specific value
     
     # Configure potentials for this pair
     const_file = util.CONSTANTS_FILES[pot_index]
@@ -105,15 +114,61 @@ def setup_potential_pair_directory(util: utility_t, pot_pair_name: str, pot_inde
     
     return target, pot_dir
 
+def get_potential_specific_scales(pot_pair_name, util):
+    """
+    Get optimization scales specific to potential family, using util file values as base.
+    This allows control from util file while applying potential-specific multipliers.
+    """
+    base_esep_scale = util.ESEP_SCALE
+    base_opt_scale = util.OPT_SCALE
+    base_num_evaluations = util.NUM_OPT_EVALUATIONS
+    
+    if 'av18' in pot_pair_name.lower():
+        # AV18 potentials: use util file values directly (already optimized)
+        return {
+            'esep_scale': base_esep_scale,
+            'opt_scale': base_opt_scale,
+            'num_evaluations': base_num_evaluations,
+            'multi_stage': False,  # Single-stage optimization is sufficient
+            'multiplier_info': 'AV18 (1.0x util values)'
+        }
+    elif 'nv2' in pot_pair_name.lower():
+        # NV2 potentials: scale up from util file values (need more aggressive optimization)
+        return {
+            'esep_scale': base_esep_scale * 2.0,    # 2x more aggressive ESEP
+            'opt_scale': base_opt_scale * 1.6,      # 1.6x more aggressive correlations
+            'num_evaluations': int(base_num_evaluations * 1.5),  # 50% more evaluations
+            'multi_stage': True,   # Use multi-stage optimization
+            'multiplier_info': 'NV2 (2.0x esep, 1.6x opt, 1.5x evals from util)'
+        }
+    else:
+        # Default for unknown potentials: moderate scaling from util values
+        return {
+            'esep_scale': base_esep_scale * 1.4,
+            'opt_scale': base_opt_scale * 1.2,
+            'num_evaluations': int(base_num_evaluations * 1.2),
+            'multi_stage': True,
+            'multiplier_info': 'Other (1.4x esep, 1.2x opt, 1.2x evals from util)'
+        }
+
 def BoundStateOptimize(target: wavefunction_t, util: utility_t, pot_pair_name: str, pot_dir: str):
     """
     Optimize bound state wavefunction for a specific potential pair
     """
     BREAK="="*72
-    opt_scale = util.OPT_SCALE
-    esep_scale = util.ESEP_SCALE
+    
+    # Get potential-specific optimization parameters
+    scales = get_potential_specific_scales(pot_pair_name, util)
+    opt_scale = scales['opt_scale']
+    esep_scale = scales['esep_scale']
+    num_evaluations = scales['num_evaluations']
     
     print(f" 🔥 BOUND STATE OPTIMIZATION: {pot_pair_name} 🔥")
+    print(f"Using potential-specific scales:")
+    print(f"  {scales['multiplier_info']}")
+    print(f"  ESEP scale: {esep_scale}")
+    print(f"  OPT scale: {opt_scale}")
+    print(f"  Evaluations: {num_evaluations}")
     print(BREAK)
     
     # Step 1: Initial evaluation
@@ -206,11 +261,79 @@ def BoundStateOptimize(target: wavefunction_t, util: utility_t, pot_pair_name: s
     log_optimize_esep = f"{pot_dir}logs/{pot_pair_name}.esep_only.optimize"
     print(f"BEGIN ESEP-ONLY OPTIMIZATION: {log_optimize_esep}.optimize")
     
+    # Adaptive optimization: try standard scale first, then increase if needed
     e_esep_only, v_esep_only = target.Optimize(opt_esep, dk_name_esep, True, log_optimize_esep)
+    initial_esep_improvement = abs(e_esep_only - e_initial)
+    
+    # If improvement is small for NV2 potentials, try more aggressive optimization
+    if 'nv2' in pot_pair_name.lower() and initial_esep_improvement < 0.5:
+        print(f"⚠️  Small ESEP improvement ({initial_esep_improvement:.3f} MeV) detected for NV2 potential")
+        print("🔄 Trying more aggressive ESEP optimization...")
+        
+        # Create more aggressive optimization file
+        aggressive_esep_scale = esep_scale * 2.0
+        instructions_esep_aggressive = [
+            {"ss": False, "key": "ESEP", "idx": 0, "scale": aggressive_esep_scale, "flat": 0.0},
+            {"ss": False, "key": "ESEP", "idx": 1, "scale": aggressive_esep_scale, "flat": 0.0},
+            {"ss": False, "key": "ESEP", "idx": 2, "scale": aggressive_esep_scale, "flat": 0.0},
+            {"ss": False, "key": "ESEP", "idx": 3, "scale": aggressive_esep_scale, "flat": 0.0},
+        ]
+        
+        opt_esep_aggressive = f"'{pot_dir}opt/{pot_pair_name}_esep_aggressive.opt'"
+        GenerateOptFile(instructions_esep_aggressive, opt_esep_aggressive)
+        
+        dk_name_esep_aggressive = f"'{pot_dir}dk/{pot_pair_name}_esep_aggressive.dk'"
+        log_optimize_esep_aggressive = f"{pot_dir}logs/{pot_pair_name}.esep_aggressive.optimize"
+        print(f"AGGRESSIVE ESEP OPTIMIZATION (scale={aggressive_esep_scale:.1f}): {log_optimize_esep_aggressive}")
+        
+        e_esep_aggressive, v_esep_aggressive = target.Optimize(opt_esep_aggressive, dk_name_esep_aggressive, True, log_optimize_esep_aggressive)
+        
+        aggressive_improvement = abs(e_esep_aggressive - e_initial)
+        print(f"Standard improvement: {initial_esep_improvement:.3f} MeV")
+        print(f"Aggressive improvement: {aggressive_improvement:.3f} MeV")
+        
+        if e_esep_aggressive < e_esep_only:  # Use aggressive result if better
+            print("✅ Aggressive optimization successful, using aggressive result")
+            e_esep_only, v_esep_only = e_esep_aggressive, v_esep_aggressive
+            dk_name_esep = dk_name_esep_aggressive
+            esep_scale = aggressive_esep_scale  # Update for metadata
+        else:
+            print("⚠️  Aggressive optimization did not improve, using standard result")
     
     print(f" ⚛ ESEP-ONLY E = {e_esep_only:.4f} +- {v_esep_only:.4f}")
     print(f"ESEP-ONLY IMPROVEMENT: {e_esep_only - e_initial:.4f} MeV")
     print(f"ESEP VALUES AFTER ESEP-ONLY: {target.DK.ESEP}")
+    
+    # Multi-stage ESEP optimization for difficult potentials
+    if scales['multi_stage'] and abs(e_esep_only - e_initial) > 0.5:
+        print("🔄 APPLYING MULTI-STAGE ESEP OPTIMIZATION (large improvement detected)")
+        
+        # Stage 2: More aggressive ESEP optimization with larger scale
+        stage2_esep_scale = esep_scale * 1.5
+        instructions_esep_stage2 = [
+            {"ss": False, "key": "ESEP", "idx": 0, "scale": stage2_esep_scale, "flat": 0.0},
+            {"ss": False, "key": "ESEP", "idx": 1, "scale": stage2_esep_scale, "flat": 0.0},
+            {"ss": False, "key": "ESEP", "idx": 2, "scale": stage2_esep_scale, "flat": 0.0},
+            {"ss": False, "key": "ESEP", "idx": 3, "scale": stage2_esep_scale, "flat": 0.0},
+        ]
+        
+        opt_esep_stage2 = f"'{pot_dir}opt/{pot_pair_name}_esep_stage2.opt'"
+        GenerateOptFile(instructions_esep_stage2, opt_esep_stage2)
+        
+        dk_name_esep_stage2 = f"'{pot_dir}dk/{pot_pair_name}_esep_stage2.dk'"
+        log_optimize_esep_stage2 = f"{pot_dir}logs/{pot_pair_name}.esep_stage2.optimize"
+        print(f"STAGE 2 ESEP OPTIMIZATION (scale={stage2_esep_scale:.1f}): {log_optimize_esep_stage2}")
+        
+        e_esep_stage2, v_esep_stage2 = target.Optimize(opt_esep_stage2, dk_name_esep_stage2, True, log_optimize_esep_stage2)
+        
+        if e_esep_stage2 < e_esep_only:  # Only keep if improvement
+            print(f" ⚛ STAGE 2 E = {e_esep_stage2:.4f} +- {v_esep_stage2:.4f}")
+            print(f"STAGE 2 ADDITIONAL IMPROVEMENT: {e_esep_stage2 - e_esep_only:.4f} MeV")
+            e_esep_only, v_esep_only = e_esep_stage2, v_esep_stage2
+            dk_name_esep = dk_name_esep_stage2  # Use stage 2 deck for correlation opt
+        else:
+            print("Stage 2 did not improve energy, reverting to stage 1 result")
+    
     print(BREAK)
     
     # Step 3b: Optimize ESEP + correlations
@@ -260,6 +383,12 @@ def BoundStateOptimize(target: wavefunction_t, util: utility_t, pot_pair_name: s
         "ESEP_CONTRIBUTION": esep_contribution,
         "CORR_CONTRIBUTION": corr_contribution,
         "ESEP_SCALE": esep_scale,
+        "OPT_SCALE": opt_scale,
+        "NUM_OPT_EVALUATIONS": num_evaluations,
+        "BASE_ESEP_SCALE": util.ESEP_SCALE,      # Original util file values
+        "BASE_OPT_SCALE": util.OPT_SCALE,
+        "BASE_NUM_OPT_EVALUATIONS": util.NUM_OPT_EVALUATIONS,
+        "SCALE_MULTIPLIER_INFO": scales['multiplier_info'],
         "OPT_SCALE": opt_scale,
         "NUM_SS_INSTRUCTIONS": len(instructions_ss),
         "DECK_PATH_ESEP_ONLY": dk_name_esep,
