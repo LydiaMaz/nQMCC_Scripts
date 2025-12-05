@@ -134,14 +134,14 @@ def get_potential_specific_scales(pot_pair_name, util):
             'multiplier_info': 'AV18 (1.0x util values)'
         }
     elif 'nv2' in pot_pair_name.lower():
-        # NV2 potentials: use more conservative scaling to avoid NaN issues
-        # Start with modest increases and use multi-stage for gradual improvement
+        # NV2 potentials: use ultra-conservative scaling to prevent gamma NaN issues
+        # The gamma parameter is very sensitive with NV2 - use minimal scaling
         return {
-            'esep_scale': base_esep_scale * 1.3,    # More conservative: 1.3x instead of 2.0x
-            'opt_scale': base_opt_scale * 1.2,      # More conservative: 1.2x instead of 1.6x
-            'num_evaluations': int(base_num_evaluations * 1.3),  # Modest increase
+            'esep_scale': base_esep_scale * 1.01,    # Ultra-conservative: only 1% increase
+            'opt_scale': base_opt_scale * 1.005,     # Ultra-conservative: only 0.5% increase  
+            'num_evaluations': base_num_evaluations,  # Keep same as util file
             'multi_stage': True,   # Use multi-stage optimization for gradual improvement
-            'multiplier_info': 'NV2 (1.3x esep, 1.2x opt, 1.3x evals from util - conservative)'
+            'multiplier_info': 'NV2 (1.01x esep, 1.005x opt, 1.0x evals from util - ultra-conservative to prevent gamma NaN)'
         }
     else:
         # Default for unknown potentials: moderate scaling from util values
@@ -169,10 +169,44 @@ def check_for_optimization_failure(energy, variance, deck_obj, step_name):
     
     # Check for NaN in ESEP parameters
     if hasattr(deck_obj, 'ESEP') and deck_obj.ESEP is not None:
-        esep_values = deck_obj.ESEP
-        if any(np.isnan(val) for val in esep_values):
-            print(f"❌ {step_name} FAILED: ESEP contains NaN values: {esep_values}")
-            return True
+        try:
+            esep_values = deck_obj.ESEP
+            esep_array = np.array(esep_values, dtype=float)
+            if np.any(np.isnan(esep_array)):
+                print(f"❌ {step_name} FAILED: ESEP contains NaN values: {esep_values}")
+                return True
+        except (TypeError, ValueError):
+            print(f"⚠️ {step_name}: Could not validate ESEP parameters: {deck_obj.ESEP}")
+    
+    # Check for NaN in gamma parameters (critical for wavefunction stability)
+    try:
+        if hasattr(deck_obj, 'OPT_OBJECTS') or (hasattr(deck_obj, 'target') and hasattr(deck_obj.target, 'OPT_OBJECTS')):
+            opt_objects = getattr(deck_obj, 'OPT_OBJECTS', None) or getattr(deck_obj.target, 'OPT_OBJECTS', None)
+            if opt_objects:
+                for i, obj in enumerate(opt_objects):
+                    if hasattr(obj, 'gamma'):
+                        try:
+                            gamma_val = float(obj.gamma)
+                            if np.isnan(gamma_val) or np.isinf(gamma_val):
+                                print(f"❌ {step_name} FAILED: gamma[{i}] is NaN/Inf: {gamma_val}")
+                                return True
+                            if abs(gamma_val) > 100.0:  # Unreasonably large gamma
+                                print(f"❌ {step_name} FAILED: gamma[{i}] too large: {gamma_val}")
+                                return True
+                        except (TypeError, ValueError):
+                            print(f"❌ {step_name} FAILED: gamma[{i}] not numeric: {obj.gamma}")
+                            return True
+                    if hasattr(obj, 'beta'):
+                        try:
+                            beta_val = float(obj.beta)
+                            if np.isnan(beta_val) or np.isinf(beta_val):
+                                print(f"❌ {step_name} FAILED: beta[{i}] is NaN/Inf: {beta_val}")
+                                return True
+                        except (TypeError, ValueError):
+                            print(f"❌ {step_name} FAILED: beta[{i}] not numeric: {obj.beta}")
+                            return True
+    except Exception as e:
+        print(f"⚠️ {step_name}: Could not validate correlation parameters: {e}")
     
     # Check for unreasonably large variance (sign of instability)
     if variance > 1.0:  # Adjust threshold as needed
@@ -182,35 +216,105 @@ def check_for_optimization_failure(energy, variance, deck_obj, step_name):
     return False
 
 
+def validate_gamma_parameters(target, context=""):
+    """
+    Validate gamma parameters before optimization to prevent NaN generation.
+    Returns True if valid, False if problematic.
+    """
+    try:
+        if hasattr(target, 'OPT_OBJECTS'):
+            for i, obj in enumerate(target.OPT_OBJECTS):
+                if hasattr(obj, 'gamma'):
+                    try:
+                        gamma_val = float(obj.gamma)
+                        if np.isnan(gamma_val) or np.isinf(gamma_val):
+                            print(f"❌ {context}: Pre-optimization gamma[{i}] is NaN/Inf: {gamma_val}")
+                            return False
+                        if abs(gamma_val) > 50.0:  # Flag potentially problematic gamma
+                            print(f"⚠️ {context}: Pre-optimization gamma[{i}] is large: {gamma_val}")
+                    except (TypeError, ValueError):
+                        print(f"❌ {context}: Pre-optimization gamma[{i}] not numeric: {obj.gamma}")
+                        return False
+        return True
+    except Exception as e:
+        print(f"⚠️ {context}: Could not validate gamma parameters: {e}")
+        return True  # Assume valid if we can't check
+
+
 def safe_optimize(target, opt_obj, deck_name, write_deck, log_name, step_name):
     """
     Safely perform optimization with parameter validation before and after
     """
     print(f"  🔧 {step_name}: Starting optimization...")
     
+    # Pre-optimization gamma validation
+    if not validate_gamma_parameters(target, step_name):
+        print(f"❌ {step_name}: Pre-optimization gamma validation failed - aborting")
+        return None, None
+    
     # Validate parameters before optimization
     try:
         if hasattr(target, 'OPT_OBJECTS'):
             for i, obj in enumerate(target.OPT_OBJECTS):
-                if hasattr(obj, 'gamma') and np.isnan(obj.gamma):
-                    raise ValueError(f"Pre-optimization: gamma parameter {i} is NaN")
-                if hasattr(obj, 'beta') and np.isnan(obj.beta):
-                    raise ValueError(f"Pre-optimization: beta parameter {i} is NaN")
+                try:
+                    if hasattr(obj, 'gamma'):
+                        gamma_val = float(obj.gamma)
+                        if np.isnan(gamma_val):
+                            raise ValueError(f"Pre-optimization: gamma parameter {i} is NaN")
+                    if hasattr(obj, 'beta'):
+                        beta_val = float(obj.beta)
+                        if np.isnan(beta_val):
+                            raise ValueError(f"Pre-optimization: beta parameter {i} is NaN")
+                except (TypeError, ValueError, AttributeError):
+                    print(f"⚠️ Could not validate optimization object {i} parameters before {step_name}")
     except Exception as e:
         print(f"⚠️ Pre-optimization parameter check failed for {step_name}: {e}")
     
     # Perform optimization
-    energy, variance = target.Optimize(opt_obj, deck_name, write_deck, log_name)
+    try:
+        energy, variance = target.Optimize(opt_obj, deck_name, write_deck, log_name)
+    except FileNotFoundError as e:
+        print(f"❌ {step_name}: File not found during optimization: {e}")
+        print(f"   Deck path: {deck_name}")
+        print(f"   Log path: {log_name}")
+        return None, None
+    except PermissionError as e:
+        print(f"❌ {step_name}: Permission denied during optimization: {e}")
+        print(f"   Deck path: {deck_name}")
+        print(f"   Log path: {log_name}")
+        return None, None
+    except Exception as e:
+        print(f"❌ {step_name}: Unexpected error during optimization: {e}")
+        print(f"   Error type: {type(e).__name__}")
+        print(f"   Deck path: {deck_name}")
+        print(f"   Log path: {log_name}")
+        return None, None
     
-    # Validate results
+    # Validate results - handle None values first
+    if energy is None or variance is None:
+        print(f"❌ {step_name}: Optimization returned None values: E={energy}, V={variance}")
+        return None, None
+    
+    # Then check for NaN
     if np.isnan(energy) or np.isnan(variance):
-        raise ValueError(f"Optimization {step_name} produced NaN values: E={energy}, V={variance}")
+        print(f"❌ {step_name}: Optimization produced NaN values: E={energy}, V={variance}")
+        return None, None
     
     # Validate deck parameters after optimization
     if hasattr(target, 'DK') and hasattr(target.DK, 'ESEP'):
-        esep_values = target.DK.ESEP
-        if any(np.isnan(val) for val in esep_values):
-            raise ValueError(f"Post-optimization: ESEP contains NaN values: {esep_values}")
+        try:
+            esep_values = target.DK.ESEP
+            esep_array = np.array(esep_values, dtype=float)
+            if np.any(np.isnan(esep_array)):
+                print(f"❌ {step_name}: Post-optimization ESEP contains NaN values: {esep_values}")
+                return None, None
+        except (TypeError, ValueError):
+            print(f"⚠️ Could not validate ESEP parameters after {step_name}")
+    
+    # Post-optimization gamma validation
+    if not validate_gamma_parameters(target, f"{step_name} POST"):
+        print(f"❌ {step_name}: Post-optimization gamma validation failed")
+        return None, None
     
     print(f"  ✓ {step_name}: E = {energy:.4f} +- {variance:.4f}")
     return energy, variance
@@ -240,19 +344,33 @@ def BoundStateOptimize(target: wavefunction_t, util: utility_t, pot_pair_name: s
     print("🔍 Checking initial wavefunction parameters...")
     if hasattr(target, 'DK') and hasattr(target.DK, 'ESEP'):
         initial_esep = target.DK.ESEP
-        if any(np.isnan(val) or np.isinf(val) for val in initial_esep):
-            raise ValueError(f"Initial ESEP parameters contain NaN/Inf values: {initial_esep}")
-        print(f"✓ Initial ESEP parameters are valid: {initial_esep}")
+        try:
+            # Convert to numpy array and check for NaN/Inf
+            esep_array = np.array(initial_esep, dtype=float)
+            if np.any(np.isnan(esep_array)) or np.any(np.isinf(esep_array)):
+                raise ValueError(f"Initial ESEP parameters contain NaN/Inf values: {initial_esep}")
+            print(f"✓ Initial ESEP parameters are valid: {initial_esep}")
+        except (TypeError, ValueError) as e:
+            print(f"⚠️ Could not validate ESEP parameters as numeric: {initial_esep}")
+            print(f"   Error: {e}")
+            print("   Proceeding with caution...")
     
     # Check for basic wavefunction parameter validity
     try:
         # Basic parameter validation - attempt to access key attributes
         if hasattr(target, 'OPT_OBJECTS'):
             for i, obj in enumerate(target.OPT_OBJECTS):
-                if hasattr(obj, 'gamma') and np.isnan(obj.gamma):
-                    raise ValueError(f"Initial gamma parameter {i} is NaN")
-                if hasattr(obj, 'beta') and np.isnan(obj.beta):
-                    raise ValueError(f"Initial beta parameter {i} is NaN")
+                try:
+                    if hasattr(obj, 'gamma'):
+                        gamma_val = float(obj.gamma)
+                        if np.isnan(gamma_val):
+                            raise ValueError(f"Initial gamma parameter {i} is NaN")
+                    if hasattr(obj, 'beta'):
+                        beta_val = float(obj.beta)
+                        if np.isnan(beta_val):
+                            raise ValueError(f"Initial beta parameter {i} is NaN")
+                except (TypeError, ValueError, AttributeError):
+                    print(f"⚠️ Could not validate optimization object {i} parameters")
         print("✓ Initial optimization parameters appear valid")
     except Exception as e:
         print(f"⚠️ Warning during parameter validation: {e}")
@@ -352,11 +470,11 @@ def BoundStateOptimize(target: wavefunction_t, util: utility_t, pot_pair_name: s
     e_esep_only, v_esep_only = safe_optimize(target, opt_esep, dk_name_esep, True, log_optimize_esep, "ESEP-ONLY")
     
     # Check for optimization failure
-    if check_for_optimization_failure(e_esep_only, v_esep_only, target.DK, "ESEP-ONLY"):
-        print("❌ ESEP optimization produced NaN values - attempting recovery")
+    if e_esep_only is None or v_esep_only is None or check_for_optimization_failure(e_esep_only, v_esep_only, target.DK, "ESEP-ONLY"):
+        print("❌ ESEP optimization failed - attempting ultra-conservative recovery")
         
-        # Try with more conservative scale as fallback
-        conservative_esep_scale = util.ESEP_SCALE * 0.8  # Even more conservative than util file
+        # Try with much more conservative scale as fallback
+        conservative_esep_scale = util.ESEP_SCALE * 0.25  # Ultra-ultra-conservative: quarter the util file value
         instructions_esep_conservative = [
             {"ss": False, "key": "ESEP", "idx": 0, "scale": conservative_esep_scale, "flat": 0.0},
             {"ss": False, "key": "ESEP", "idx": 1, "scale": conservative_esep_scale, "flat": 0.0},
@@ -364,8 +482,9 @@ def BoundStateOptimize(target: wavefunction_t, util: utility_t, pot_pair_name: s
             {"ss": False, "key": "ESEP", "idx": 3, "scale": conservative_esep_scale, "flat": 0.0},
         ]
         
-        opt_esep_recovery = f"'{pot_dir}opt/{pot_pair_name}_esep_recovery.opt'"
-        GenerateOptFile(instructions_esep_conservative, opt_esep_recovery)
+        opt_esep_recovery_file = f"'{pot_dir}opt/{pot_pair_name}_esep_recovery.opt'"
+        opt_esep_recovery = GenerateOptFile(target.PARAMS, target.DK, opt_esep_recovery_file, instructions_esep_conservative)
+        opt_esep_recovery.UpdateFloats(target.PARAMS, 6)
         
         dk_name_esep_recovery = f"'{pot_dir}dk/{pot_pair_name}_esep_recovery.dk'"
         log_optimize_esep_recovery = f"{pot_dir}logs/{pot_pair_name}.esep_recovery.optimize"
@@ -373,13 +492,17 @@ def BoundStateOptimize(target: wavefunction_t, util: utility_t, pot_pair_name: s
         
         e_esep_recovery, v_esep_recovery = safe_optimize(target, opt_esep_recovery, dk_name_esep_recovery, True, log_optimize_esep_recovery, "ESEP-RECOVERY")
         
-        if not check_for_optimization_failure(e_esep_recovery, v_esep_recovery, target.DK, "ESEP-RECOVERY"):
+        if e_esep_recovery is not None and v_esep_recovery is not None and not check_for_optimization_failure(e_esep_recovery, v_esep_recovery, target.DK, "ESEP-RECOVERY"):
             print("✅ Recovery optimization successful")
             e_esep_only, v_esep_only = e_esep_recovery, v_esep_recovery
             dk_name_esep = dk_name_esep_recovery
             esep_scale = conservative_esep_scale  # Update for metadata
         else:
             raise RuntimeError(f"ESEP optimization failed completely for {pot_pair_name} - unable to recover")
+    
+    # Ensure we have valid values before proceeding
+    if e_esep_only is None or v_esep_only is None:
+        raise RuntimeError(f"ESEP optimization returned None for {pot_pair_name}")
     
     initial_esep_improvement = abs(e_esep_only - e_initial)
     
@@ -397,8 +520,9 @@ def BoundStateOptimize(target: wavefunction_t, util: utility_t, pot_pair_name: s
             {"ss": False, "key": "ESEP", "idx": 3, "scale": aggressive_esep_scale, "flat": 0.0},
         ]
         
-        opt_esep_aggressive = f"'{pot_dir}opt/{pot_pair_name}_esep_aggressive.opt'"
-        GenerateOptFile(instructions_esep_aggressive, opt_esep_aggressive)
+        opt_esep_aggressive_file = f"'{pot_dir}opt/{pot_pair_name}_esep_aggressive.opt'"
+        opt_esep_aggressive = GenerateOptFile(target.PARAMS, target.DK, opt_esep_aggressive_file, instructions_esep_aggressive)
+        opt_esep_aggressive.UpdateFloats(target.PARAMS, 6)
         
         dk_name_esep_aggressive = f"'{pot_dir}dk/{pot_pair_name}_esep_aggressive.dk'"
         log_optimize_esep_aggressive = f"{pot_dir}logs/{pot_pair_name}.esep_aggressive.optimize"
@@ -407,8 +531,10 @@ def BoundStateOptimize(target: wavefunction_t, util: utility_t, pot_pair_name: s
         e_esep_aggressive, v_esep_aggressive = safe_optimize(target, opt_esep_aggressive, dk_name_esep_aggressive, True, log_optimize_esep_aggressive, "ESEP-AGGRESSIVE")
         
         # Check for failure in aggressive optimization
-        if check_for_optimization_failure(e_esep_aggressive, v_esep_aggressive, target.DK, "ESEP-AGGRESSIVE"):
-            print("❌ Aggressive optimization failed (NaN detected), using standard result")
+        if e_esep_aggressive is None or v_esep_aggressive is None or check_for_optimization_failure(e_esep_aggressive, v_esep_aggressive, target.DK, "ESEP-AGGRESSIVE"):
+            print("❌ Aggressive optimization failed (NaN detected), keeping standard result")
+            print(f"✓ Using stable standard result: E = {e_esep_only:.4f} +- {v_esep_only:.4f}")
+            # Keep the standard result (e_esep_only, v_esep_only, dk_name_esep already set correctly)
         else:
             aggressive_improvement = abs(e_esep_aggressive - e_initial)
             print(f"Standard improvement: {initial_esep_improvement:.3f} MeV")
@@ -420,11 +546,16 @@ def BoundStateOptimize(target: wavefunction_t, util: utility_t, pot_pair_name: s
                 dk_name_esep = dk_name_esep_aggressive
                 esep_scale = aggressive_esep_scale  # Update for metadata
             else:
-                print("⚠️  Aggressive optimization did not improve, using standard result")
+                print("⚠️  Aggressive optimization did not improve, keeping standard result")
+                print(f"Standard: {e_esep_only:.4f} MeV vs Aggressive: {e_esep_aggressive:.4f} MeV")
     
     print(f" ⚛ ESEP-ONLY E = {e_esep_only:.4f} +- {v_esep_only:.4f}")
     print(f"ESEP-ONLY IMPROVEMENT: {e_esep_only - e_initial:.4f} MeV")
     print(f"ESEP VALUES AFTER ESEP-ONLY: {target.DK.ESEP}")
+    
+    # Final safety check: ensure we have valid ESEP results before proceeding
+    if e_esep_only is None or v_esep_only is None:
+        raise RuntimeError(f"ESEP optimization returned invalid results for {pot_pair_name}")
     
     # Multi-stage ESEP optimization for difficult potentials
     if scales['multi_stage'] and abs(e_esep_only - e_initial) > 0.5:
@@ -432,6 +563,12 @@ def BoundStateOptimize(target: wavefunction_t, util: utility_t, pot_pair_name: s
         
         # Stage 2: More aggressive ESEP optimization with larger scale (but not too large)
         stage2_esep_scale = esep_scale * 1.2  # Conservative increase
+        
+        # For NV2 potentials, be even more careful with stage 2 scaling
+        if 'nv2' in pot_pair_name.lower():
+            stage2_esep_scale = esep_scale * 1.05  # Very small increase for NV2
+            print(f"🔧 Using extra-conservative stage 2 scaling for NV2: {stage2_esep_scale:.3f}")
+        
         instructions_esep_stage2 = [
             {"ss": False, "key": "ESEP", "idx": 0, "scale": stage2_esep_scale, "flat": 0.0},
             {"ss": False, "key": "ESEP", "idx": 1, "scale": stage2_esep_scale, "flat": 0.0},
@@ -439,33 +576,87 @@ def BoundStateOptimize(target: wavefunction_t, util: utility_t, pot_pair_name: s
             {"ss": False, "key": "ESEP", "idx": 3, "scale": stage2_esep_scale, "flat": 0.0},
         ]
         
-        opt_esep_stage2 = f"'{pot_dir}opt/{pot_pair_name}_esep_stage2.opt'"
-        GenerateOptFile(instructions_esep_stage2, opt_esep_stage2)
+        # CRITICAL: Load the Stage 1 optimized deck as starting point for Stage 2
+        stage1_deck_path = dk_name_esep.strip("'\"")  # Remove quotes
+        if os.path.exists(stage1_deck_path):
+            print(f"✓ Loading Stage 1 deck for Stage 2: {stage1_deck_path}")
+            stage1_optimized_deck = deck_t(target.PARAMS, dk_name_esep)
+            
+            # CRUCIAL: Update the target wavefunction with Stage 1 optimized parameters
+            # This ensures gamma/beta parameters start from Stage 1 values, not original values
+            target.DK = stage1_optimized_deck
+            print(f"✓ Updated target wavefunction with Stage 1 parameters")
+            print(f"   Stage 1 ESEP: {target.DK.ESEP}")
+            
+            opt_esep_stage2_file = f"'{pot_dir}opt/{pot_pair_name}_esep_stage2.opt'"
+            opt_esep_stage2 = GenerateOptFile(target.PARAMS, stage1_optimized_deck, opt_esep_stage2_file, instructions_esep_stage2)
+            opt_esep_stage2.UpdateFloats(target.PARAMS, 6)
+            
+            dk_name_esep_stage2 = f"'{pot_dir}dk/{pot_pair_name}_esep_stage2.dk'"
+            log_optimize_esep_stage2 = f"{pot_dir}logs/{pot_pair_name}.esep_stage2.optimize"
+            print(f"STAGE 2 ESEP OPTIMIZATION (scale={stage2_esep_scale:.1f}): {log_optimize_esep_stage2}")
+            
+            e_esep_stage2, v_esep_stage2 = safe_optimize(target, opt_esep_stage2, dk_name_esep_stage2, True, log_optimize_esep_stage2, "ESEP-STAGE2")
+        else:
+            print(f"❌ Stage 1 deck not found: {stage1_deck_path}")
+            print("⚠️ Skipping Stage 2 optimization")
+            # Set stage 2 results to None to indicate failure
+            e_esep_stage2, v_esep_stage2 = None, None
         
-        dk_name_esep_stage2 = f"'{pot_dir}dk/{pot_pair_name}_esep_stage2.dk'"
-        log_optimize_esep_stage2 = f"{pot_dir}logs/{pot_pair_name}.esep_stage2.optimize"
-        print(f"STAGE 2 ESEP OPTIMIZATION (scale={stage2_esep_scale:.1f}): {log_optimize_esep_stage2}")
-        
-        e_esep_stage2, v_esep_stage2 = safe_optimize(target, opt_esep_stage2, dk_name_esep_stage2, True, log_optimize_esep_stage2, "ESEP-STAGE2")
         
         # Check for failure in stage 2 optimization
-        if check_for_optimization_failure(e_esep_stage2, v_esep_stage2, target.DK, "ESEP-STAGE2"):
-            print("❌ Stage 2 optimization failed (NaN detected), using stage 1 result")
+        if e_esep_stage2 is None or v_esep_stage2 is None or check_for_optimization_failure(e_esep_stage2, v_esep_stage2, target.DK, "ESEP-STAGE2"):
+            print("❌ Stage 2 optimization failed (NaN detected), keeping stage 1 result")
+            print(f"✓ Falling back to stable Stage 1: E = {e_esep_only:.4f} +- {v_esep_only:.4f}")
+            # Keep dk_name_esep as the stage 1 deck (already set correctly)
         elif e_esep_stage2 < e_esep_only:  # Only keep if improvement
             print(f" ⚛ STAGE 2 E = {e_esep_stage2:.4f} +- {v_esep_stage2:.4f}")
             print(f"STAGE 2 ADDITIONAL IMPROVEMENT: {e_esep_stage2 - e_esep_only:.4f} MeV")
+            print("✅ Stage 2 successful, using Stage 2 result")
             e_esep_only, v_esep_only = e_esep_stage2, v_esep_stage2
             dk_name_esep = dk_name_esep_stage2  # Use stage 2 deck for correlation opt
         else:
-            print("Stage 2 did not improve energy, reverting to stage 1 result")
+            print("⚠️  Stage 2 did not improve energy, keeping stage 1 result")
+            print(f"Stage 1: {e_esep_only:.4f} MeV vs Stage 2: {e_esep_stage2:.4f} MeV")
+            # Keep dk_name_esep as the stage 1 deck (already set correctly)
     
     print(BREAK)
     
     # Step 3b: Optimize ESEP + correlations
     print("Step 3b: ESEP + CORRELATIONS OPTIMIZATION")
     
-    # Load the ESEP-optimized deck as the base for correlation optimization
-    esep_optimized_deck = deck_t(target.PARAMS, dk_name_esep)
+    # Verify the ESEP deck exists before trying to load it
+    esep_deck_path = dk_name_esep.strip("'\"")  # Remove quotes if present
+    print(f"🔍 Checking for ESEP deck: {esep_deck_path}")
+    
+    if not os.path.exists(esep_deck_path):
+        print(f"❌ ESEP deck not found: {esep_deck_path}")
+        print("🔧 Using current target wavefunction state for correlations")
+        # Use the current target.DK which should have the ESEP-optimized parameters
+        esep_optimized_deck = target.DK
+        
+        # Write the current state to a fallback deck file for consistency
+        fallback_deck_path = f"'{pot_dir}dk/{pot_pair_name}_current_state.dk'"
+        print(f"💾 Saving current wavefunction state: {fallback_deck_path}")
+        target.DK.WriteDeck(fallback_deck_path.strip("'\""))
+        dk_name_for_correlations = fallback_deck_path
+    else:
+        # Load the ESEP-optimized deck as the base for correlation optimization
+        try:
+            print(f"📖 Loading ESEP-optimized deck: {esep_deck_path}")
+            esep_optimized_deck = deck_t(target.PARAMS, dk_name_esep)
+            dk_name_for_correlations = dk_name_esep
+            print(f"✓ Successfully loaded ESEP-optimized deck")
+        except Exception as e:
+            print(f"❌ Failed to load ESEP deck: {e}")
+            print("🔧 Using current target wavefunction state as fallback")
+            esep_optimized_deck = target.DK
+            
+            # Write the current state to a fallback deck file
+            fallback_deck_path = f"'{pot_dir}dk/{pot_pair_name}_fallback_state.dk'"
+            print(f"💾 Saving fallback state: {fallback_deck_path}")
+            target.DK.WriteDeck(fallback_deck_path.strip("'\""))
+            dk_name_for_correlations = fallback_deck_path
     
     opt_all_file_name = f"'{pot_dir}opt/{pot_pair_name}_all.opt'"
     opt_all = GenerateOptFile(target.PARAMS, esep_optimized_deck, opt_all_file_name, instructions_all)
@@ -474,11 +665,44 @@ def BoundStateOptimize(target: wavefunction_t, util: utility_t, pot_pair_name: s
     dk_name_all = f"'{pot_dir}dk/{pot_pair_name}_esep_plus_corr.dk'"
     log_optimize_all = f"{pot_dir}logs/{pot_pair_name}.esep_plus_corr.optimize"
     print(f"BEGIN ESEP + CORRELATIONS OPTIMIZATION: {log_optimize_all}.optimize")
+    print(f"🎯 Final deck will be saved to: {dk_name_all}")
+    print(f"🔍 Current working directory: {os.getcwd()}")
     
-    e_optimized, v_optimized = safe_optimize(target, opt_all, dk_name_all, True, log_optimize_all, "ESEP+CORR")
+    # Debug: Check if the dk directory exists and is writable
+    dk_dir = f"{pot_dir}dk"
+    print(f"🔍 Checking dk directory: {dk_dir}")
+    print(f"   Exists: {os.path.exists(dk_dir)}")
+    print(f"   Is directory: {os.path.isdir(dk_dir)}")
+    print(f"   Writable: {os.access(dk_dir, os.W_OK)}")
+    
+    # Also check the absolute path
+    abs_dk_dir = os.path.abspath(dk_dir)
+    print(f"🔍 Absolute dk directory: {abs_dk_dir}")
+    print(f"   Abs exists: {os.path.exists(abs_dk_dir)}")
+    print(f"   Abs writable: {os.access(abs_dk_dir, os.W_OK)}")
+    
+    # Ensure the dk directory exists
+    os.makedirs(dk_dir, exist_ok=True)
+    
+    # Test write a dummy file to check permissions
+    test_file = f"{dk_dir}/test_write.tmp"
+    try:
+        with open(test_file, 'w') as f:
+            f.write("test")
+        os.remove(test_file)
+        print(f"✓ Directory write test passed")
+    except Exception as e:
+        print(f"❌ Directory write test failed: {e}")
+        raise RuntimeError(f"Cannot write to dk directory {dk_dir}: {e}")
+    
+    # Try using relative path for the deck name (QMC might expect relative paths)
+    dk_name_all_relative = f"dk/{pot_pair_name}_esep_plus_corr.dk"
+    print(f"🔄 Using relative deck path: {dk_name_all_relative}")
+    
+    e_optimized, v_optimized = safe_optimize(target, opt_all, dk_name_all_relative, True, log_optimize_all, "ESEP+CORR")
     
     # Check for failure in final optimization
-    if check_for_optimization_failure(e_optimized, v_optimized, target.DK, "FINAL"):
+    if e_optimized is None or v_optimized is None or check_for_optimization_failure(e_optimized, v_optimized, target.DK, "FINAL"):
         print("❌ Final optimization failed (NaN detected), using ESEP-only result")
         e_optimized, v_optimized = e_esep_only, v_esep_only
         print(f"⚠️  Falling back to ESEP-only result: E = {e_optimized:.4f} +- {v_optimized:.4f}")
@@ -523,7 +747,8 @@ def BoundStateOptimize(target: wavefunction_t, util: utility_t, pot_pair_name: s
         "OPT_SCALE": opt_scale,
         "NUM_SS_INSTRUCTIONS": len(instructions_ss),
         "DECK_PATH_ESEP_ONLY": dk_name_esep,
-        "DECK_PATH_FINAL": dk_name_all
+        "DECK_PATH_FINAL": dk_name_all_relative,  # Use the relative path that was actually used
+        "DECK_PATH_FOR_CORRELATIONS": dk_name_for_correlations  # Track which deck was actually used
     }
     
     # Save individual result
@@ -653,3 +878,62 @@ if __name__ == '__main__':
     print("="*72)
     print("ALL OPTIMIZATIONS COMPLETED!")
     print("="*72)
+
+
+base_esep_scale = util.ESEP_SCALE   # Start exactly from util file
+
+trial_multipliers = [1.0, 1.5, 2.0, 3.0]
+best = None
+
+print("="*72)
+print(f"NV ADAPTIVE ESEP: base util scale = {base_esep_scale}")
+print(f"Trial multipliers: {trial_multipliers}")
+print("="*72)
+
+for m in trial_multipliers:
+    current_scale = base_esep_scale * m
+    label = f"nv_m{m:.1f}"
+
+    instructions_esep = [
+        {"ss": False, "key": "ESEP", "idx": 0, "scale": current_scale, "flat": 0.0},
+        {"ss": False, "key": "ESEP", "idx": 1, "scale": current_scale, "flat": 0.0},
+        {"ss": False, "key": "ESEP", "idx": 2, "scale": current_scale, "flat": 0.0},
+        {"ss": False, "key": "ESEP", "idx": 3, "scale": current_scale, "flat": 0.0},
+    ]
+
+    opt_esep_file_name = f"'{pot_dir}opt/{pot_pair_name}_esep_{label}.opt'"
+    dk_name_esep = f"'{pot_dir}dk/{pot_pair_name}_esep_{label}.dk'"
+    log_optimize_esep = f"{pot_dir}logs/{pot_pair_name}.esep_{label}.optimize"
+
+    print(f" → Trying scale = {current_scale:.4f} ({label})")
+
+    opt_esep = GenerateOptFile(target.PARAMS, target.DK, opt_esep_file_name, instructions_esep)
+    opt_esep.UpdateFloats(target.PARAMS, 6)
+
+    e_try, v_try = safe_optimize(
+        target,
+        opt_esep,
+        dk_name_esep,
+        True,
+        log_optimize_esep,
+        f"ESEP-NV-{label}",
+    )
+
+    if e_try is None:
+        print("   ✖ Invalid result, skipping.")
+        continue
+
+    print(f"   ✓ E = {e_try:.4f}")
+
+    # stop when energy increases → minimum found
+    if best is not None and e_try > best["E"]:
+        print(f"   ↑ Energy increased at m={m}. Minimum reached — stopping NV scan.")
+        break
+
+    best = {
+        "E": e_try,
+        "V": v_try,
+        "scale": current_scale,
+        "multiplier": m,
+        "dk_name": dk_name_esep,
+    }
