@@ -54,3 +54,59 @@ def InitPShellScattWF(scatter: wavefunction_t,target: wavefunction_t,out_file):
     scatter.DK.FILE_NAME=out_file
     scatter.DK.Write(scatter.PARAMS,out_file)
     scatter.CTRL.INPUT_BRA.DECK_FILE=out_file
+#-----------------------------------------------------------------------
+def InitNShellBoundWF(nucleus: wavefunction_t, alpha: wavefunction_t,
+                      out_file: str, copy_esep=True):
+    """
+    Initialize a bound-state wavefunction (e.g. Li-6, Li-7) by
+    copying the optimized alpha-core correlation parameters
+    from 'alpha' into 'nucleus'.
+
+    Only the correlation block corresponding to deck lines 5–18
+    (ZETA through QSSS2) is replaced, plus ESEP if desired.
+
+    This is the bound-state analogue of InitPShellScattWF.
+    """
+
+    dst = nucleus.DK       # deck for Li-6, Li-7, etc.
+    src = alpha.DK         # optimized He-4 deck (for same potential)
+
+    # Optionally copy ESEP (potential-dependent separation energy)
+    if copy_esep:
+        dst.ESEP = src.ESEP[:]
+
+    # Correlation block: deck lines 5–18
+    corr_keys = [
+        "ZETA",
+        "FSCAL",
+        "AC",
+        "AA",
+        "AR",
+        "ALPHA",
+        "BETA",
+        "GAMMA",
+        "UUR", "UUA", "UUW",
+        "SSH_LFSP", "SSH_E_OR_V", "SSH_LSCAT",
+        "SSH_LMU1", "SSH_LMU2", "SSH_LQNUM", "SSH_LNODES",
+        "SSH_WSE", "SSH_WSV", "SSH_WSR", "SSH_WSA",
+        "SSH_WBRHO", "SSH_WBALPH",
+        "DELTA", "EPSILON", "THETA", "UPSILON", "RSCAL", "USCAL",
+        "QPS1", "QPS2",
+        "QSSS1", "QSSS2",
+    ]
+
+    # Copy these from alpha → nucleus
+    for key in corr_keys:
+        dst.__dict__[key] = src.__dict__[key][:] if isinstance(src.__dict__[key], list) \
+                            else src.__dict__[key]
+
+    # Do NOT touch nucleus-specific parts:
+    # NAME, PARITY, J/T, LCUT/LOPC, orbitals, SS block, etc.
+
+    # Write new deck file
+    dst.FILE_NAME = out_file
+    dst.Write(nucleus.PARAMS, out_file)
+
+    # Update control file's active deck
+    nucleus.CTRL.INPUT_BRA.DECK_FILE = out_file
+
