@@ -77,6 +77,7 @@ def InitNShellBoundWF(nucleus: wavefunction_t, alpha: wavefunction_t,
 
     # Correlation block: deck lines 5–18
     corr_keys = [
+        "ETA",
         "ZETA",
         "FSCAL",
         "AC",
