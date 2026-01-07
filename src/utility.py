@@ -53,6 +53,10 @@ class utility_t:
         if self.SYSTEM_TYPE.lower() == "bound":
             data=data[13:]
             self.ESEP_SCALE = float(data[0][0])
+            if len(data) > 1 and len(data[1]) > 0:
+                self.ALPHA_DIR = data[1][0]
+            else:
+                self.ALPHA_DIR = None
 #-----------------------------------------------------------------------
 def nQMCC(binary: str, ctrl: control_t, bin_dir: str, runner: list, write_log=False, log_name=""):
         cmd = f"{" ".join(runner)} {bin_dir}{binary}".split()
