@@ -2,7 +2,7 @@
 bopt.py
 Bound-state optimizer with ESEP scan and alpha seeding
 """
-
+#-----------------------------------------------------------------------
 import os
 import sys
 import json
@@ -18,6 +18,31 @@ from utility import utility_t
 from deck import deck_t, GenerateOptFile
 from wavefunction import wavefunction_t, InitNShellBoundWF
 from parameters import parameters_t
+#-----------------------------------------------------------------------
+"""
+---
+Bound State Optimization Logic
+---
+1. Parse utility file for ESEP_SCALE, OPT_SCALE, optional ALPHA_DIR
+2. Setup working directories for each potential pair
+3. Build target wavefunction from control file
+4. Optional: Apply alpha-core seeding if ALPHA_DIR provided
+5. Perform initial evaluation to get baseline energy
+6. ESEP scan from 0 to ESEP_SCALE with configurable step size (default 0.2)
+7. For each ESEP scale: optimize all correlations simultaneously
+8. Track best optimization result across all scales
+9. Save optimized deck and results in JSON format
+---
+Alpha Seeding Logic (Optional)
+---
+1. Check if ALPHA_DIR exists and is accessible
+2. Find pre-optimized He-4 alpha-core deck for current potential pair
+3. Copy optimized alpha parameters to target deck
+    - If seeding fails: continue with standard unseeded optimization
+    - If successful: use seeded deck as starting point for better convergence
+---
+
+"""
 
 #-----------------------------------------------------------------------
 
