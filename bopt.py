@@ -11,6 +11,8 @@ from datetime import datetime
 from pathlib import Path
 import re
 import numpy as np
+from contextlib import redirect_stdout
+from io import StringIO
 #-----------------------------------------------------------------------
 sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
 #-----------------------------------------------------------------------
@@ -333,27 +335,95 @@ def BoundStateOptimize(util, pair_name, pot_dir, pot_index, step=0.2):
 def run(util, step=0.2):
     setup_main_directory(util)
 
-    results = []
-    for i in range(util.NUM_POTS):
-        pair_name = create_pair_name(util.TWO_BODY_FILES[i], util.THREE_BODY_FILES[i])
-        pot_dir = setup_potential_pair_directory(util, pair_name)
+    # Create metadata dictionary
+    run_metadata = {
+        "timestamp": datetime.now().isoformat(),
+        "optimization_settings": {
+            "opt_scale": util.OPT_SCALE,
+            "num_opt_evaluations": util.NUM_OPT_EVALUATIONS,
+            "esep_scale": float(util.ESEP_SCALE),
+            "step_size": step
+        }
+    }
 
-        print("\n" + "=" * 72)
-        print(f"PROCESSING {i+1}/{util.NUM_POTS}: {pair_name}")
-        print("=" * 72)
+    # Setup output capture
+    opt_output_lines = []
+    
+    class OutputCapture:
+        def __init__(self):
+            self.original_print = print
+            
+        def captured_print(self, *args, **kwargs):
+            # Capture to our list
+            line = ' '.join(str(arg) for arg in args)
+            opt_output_lines.append(line)
+            # Still print to console using original print
+            self.original_print(*args, **kwargs)
+    
+    # Create output capture instance
+    output_capture = OutputCapture()
+    
+    # Monkey patch print in builtins and this module
+    import builtins
+    original_builtins_print = builtins.print
+    builtins.print = output_capture.captured_print
+    
+    # Also patch print in global scope of this module
+    globals()['print'] = output_capture.captured_print
 
-        cwd = os.getcwd()
-        os.chdir(pot_dir)
-        try:
-            res = BoundStateOptimize(util, pair_name, pot_dir, i, step)
-            results.append(res)
-        finally:
-            os.chdir(cwd)
+    try:
+        results = []
+        for i in range(util.NUM_POTS):
+            pair_name = create_pair_name(util.TWO_BODY_FILES[i], util.THREE_BODY_FILES[i])
+            pot_dir = setup_potential_pair_directory(util, pair_name)
+
+            print("\n" + "=" * 72)
+            print(f"PROCESSING {i+1}/{util.NUM_POTS}: {pair_name}")
+            print("=" * 72)
+
+            cwd = os.getcwd()
+            os.chdir(pot_dir)
+            try:
+                res = BoundStateOptimize(util, pair_name, pot_dir, i, step)
+                results.append(res)
+            finally:
+                os.chdir(cwd)
+
+    finally:
+        # Restore original print functions
+        builtins.print = original_builtins_print
+        globals()['print'] = original_builtins_print
+
+    # Prepare combined results with metadata (excluding attempts from individual results)
+    processed_results = []
+    for result in results:
+        # Create a copy without attempts for combined results
+        clean_result = {k: v for k, v in result.items() if k != "ATTEMPTS"}
+        processed_results.append(clean_result)
+
+    combined_data = {
+        "run_metadata": run_metadata,
+        "results": processed_results
+    }
 
     out = f"{util.WORKING_DIR}combined_results.json"
     with open(out, "w") as f:
-        json.dump(results, f, indent=2)
+        json.dump(combined_data, f, indent=2)
     print("\nSaved:", out)
+
+    # Save all captured output to .out file
+    out_file = f"{util.WORKING_DIR}optimization_log.out"
+    with open(out_file, "w") as f:
+        f.write("# Optimization Log\n")
+        f.write(f"# Generated: {datetime.now().isoformat()}\n")
+        f.write(f"# OPT_SCALE: {util.OPT_SCALE}\n")
+        f.write(f"# NUM_OPT_EVALUATIONS: {util.NUM_OPT_EVALUATIONS}\n")
+        f.write(f"# ESEP_SCALE: {util.ESEP_SCALE}\n")
+        f.write(f"# STEP_SIZE: {step}\n")
+        f.write("#" + "="*70 + "\n\n")
+        for line in opt_output_lines:
+            f.write(line + "\n")
+    print("Saved optimization log:", out_file)
 #-----------------------------------------------------------------------
 if __name__ == "__main__":
     import argparse
