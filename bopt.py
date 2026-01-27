@@ -263,6 +263,24 @@ def BoundStateOptimize(util, pair_name, pot_dir, pot_index, step=0.2):
         {"ss": False, "key": "QSSS1", "scale": opt_scale, "flat": 0.0},
     ]
 
+    # Check if spatial symmetries exist and use the first one (index 0)
+    instructions = instructions_base
+    if hasattr(target0.DK, 'SS') and len(target0.DK.SS) > 0:
+        ssi = 0  # Use first spatial symmetry
+        instructions_ss = [
+            {"ss":True,"ss_idx":ssi,"key":"SPU"  ,"scale":opt_scale, "flat":0.0},
+            {"ss":True,"ss_idx":ssi,"key":"SPV"  ,"scale":opt_scale, "flat":0.0},
+            {"ss":True,"ss_idx":ssi,"key":"SPA"  ,"scale":opt_scale, "flat":0.0},
+            {"ss":True,"ss_idx":ssi,"key":"SPB"  ,"scale":opt_scale, "flat":0.0},
+            {"ss":True,"ss_idx":ssi,"key":"SPC"  ,"scale":opt_scale, "flat":0.0},
+            {"ss":True,"ss_idx":ssi,"key":"SPK"  ,"scale":opt_scale, "flat":0.0},
+            {"ss":True,"ss_idx":ssi,"key":"SPL"  ,"scale":opt_scale, "flat":0.0},
+            {"ss":True,"ss_idx":ssi,"key":"WSR"  ,"scale":opt_scale, "flat":0.0},
+            {"ss":True,"ss_idx":ssi,"key":"WSA"  ,"scale":opt_scale, "flat":0.0}
+        ]
+        instructions = instructions_base + instructions_ss
+        print(f"Spatial symmetries detected: optimizing SS[{ssi}] parameters")
+
     max_scale = esep_scale
     scales = []
     x = 0.0
@@ -289,7 +307,7 @@ def BoundStateOptimize(util, pair_name, pot_dir, pot_index, step=0.2):
         dk_out   = f"{pot_dir}dk/{pair_name}_opt_{tag}.dk"
         log_pref = f"{pot_dir}logs/{pair_name}.opt_{tag}"
 
-        e, v, ok, msg = try_optimize(target, opt_file, dk_out, log_pref, set_esep_scale(instructions_base, scale), e0, True)
+        e, v, ok, msg = try_optimize(target, opt_file, dk_out, log_pref, set_esep_scale(instructions, scale), e0, True)
 
         attempt = {
             "scale": scale, "tag": tag, "ok": ok,
