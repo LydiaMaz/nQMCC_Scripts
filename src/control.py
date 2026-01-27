@@ -85,45 +85,59 @@ class control_t:
         file.close()
 #----------------------------------------------------------------------
         self.BASIS=data[0][0]
-        self.BRA_EQ_KET=data[1][0]
-        self.BRA_TYPE=data[2][0]
+        self.CONST_FILE=data[1][0]
+        self.L2BP_FILE,self.L3BP_FILE=data[2][:2]
+        self.LKE,self.LEMP=data[3][:2]
+        self.BRA_EQ_KET=data[4][0]
+        self.BRA_TYPE=data[5][0]
 #----------------------------------------------------------------------
-        self.INPUT_BRA=wavefunction_input_t(self.BRA_TYPE,data[3:10])
-        data=data[3+self.INPUT_BRA.IDX:]
+        self.INPUT_BRA=wavefunction_input_t(self.BRA_TYPE,data[6:13])
+        data_index = 6 + self.INPUT_BRA.IDX
 #----------------------------------------------------------------------
         if (self.BRA_EQ_KET != ".true."):
 #----------------------------------------------------------------------
-            self.KET_TYPE=data[0][0]
-            self.INPUT_KET=wavefunction_input_t(self.KET_TYPE,data[1:8])
-            data=data[1+self.INPUT_KET.IDX:]
+            self.KET_TYPE=data[data_index][0]
+            self.INPUT_KET=wavefunction_input_t(self.KET_TYPE,data[data_index+1:data_index+8])
+            data_index = data_index + 1 + self.INPUT_KET.IDX
         else:
             self.KET_TYPE=self.BRA_TYPE
             self.INPUT_KET=self.INPUT_BRA
 #----------------------------------------------------------------------
-        self.RW_WALK,self.WALK_FILE=data[0][:2]
-        self.CONST_FILE=data[1][0]
-        self.L2BP_FILE,self.L3BP_FILE=data[2][:2]
-        self.LKE,self.LEMP=data[3][:2]
-        self.RNG_SEED=data[4][0]
-        self.NUM_BLOCKS,self.BLOCK_SIZE,self.NUM_WALKERS_PER_NODE=data[5][:3]
-        self.BURN_IN_COUNT,self.NUM_MOVES_BETWEEN=data[6][:2]
-        self.PARTICLE_MAX_DX=data[7][0]
-        self.NPTS,self.NPTS_IN_ONE_FERMI,self.FD_FACTOR=data[8][:3]
-        self.SS_LIMIT,self.SP_LIMIT,self.SD_LIMIT=data[9][:3]
-        self.BOX_SIZE=data[10][0]
-        self.SAMPLE_L2,self.RSAM,self.PSAM=data[11][:3]
-        self.BIN_WIDTH,self.BIN_MAXR=data[12][:2]
-        self.LASTP_SAMPLE_TYPE,self.LPS_A,self.LPS_B,self.EXTRA_NORM,self.EXTRA_NORM_ERROR=data[13][:5]
-        self.ANC_ENERGY,self.REG_GAMMA,self.ECLSTR1,self.DCLSTR1,self.ECLSTR2,self.DCLSTR2=data[14][:6]
-        self.DO_GROUP,self.GROUP_FILE,self.NORTAB_FILE=data[15][:3]
-        self.NLOPT_METHOD,self.NUM_OPT_WALKS,self.NUM_OPT_EVALUATIONS=data[16][:3]
-        self.OPTIMIZATION_INPUT_FILE=data[17][0]
-        self.OPTIMIZED_DECK_FILE=data[18][0]
-        self.SCRATCH_DIR=data[19][0]
+        self.RW_WALK,self.WALK_FILE=data[data_index][:2]
+        self.RNG_SEED=data[data_index+1][0]
+        self.NUM_BLOCKS,self.BLOCK_SIZE,self.NUM_WALKERS_PER_NODE=data[data_index+2][:3]
+        self.BURN_IN_COUNT,self.NUM_MOVES_BETWEEN=data[data_index+3][:2]
+        self.PARTICLE_MAX_DX=data[data_index+4][0]
+        self.SAMPLE_L2,self.RSAM,self.PSAM=data[data_index+5][:3]
+        self.NPTS,self.NPTS_IN_ONE_FERMI,self.FD_FACTOR=data[data_index+6][:3]
+        self.SS_LIMIT,self.SP_LIMIT,self.SD_LIMIT=data[data_index+7][:3]
+        self.BOX_SIZE=data[data_index+8][0]
+        self.NLOPT_METHOD,self.NUM_OPT_WALKS,self.NUM_OPT_EVALUATIONS=data[data_index+9][:3]
+        self.LIMIT_CHARGE_RADII,self.NEUTRON_RADIUS_LIMIT,self.PROTON_RADIUS_LIMIT=data[data_index+10][:3]
+        self.OPTIMIZATION_INPUT_FILE=data[data_index+11][0]
+        self.OPTIMIZED_DECK_FILE=data[data_index+12][0]
+        # Handle case where DO_GROUP line might have only 2 values
+        group_data = data[data_index+13]
+        if len(group_data) >= 3:
+            self.DO_GROUP,self.GROUP_FILE,self.NORTAB_FILE=group_data[:3]
+        else:
+            self.DO_GROUP = group_data[0] if len(group_data) > 0 else ".false."
+            self.GROUP_FILE = group_data[1] if len(group_data) > 1 else ""
+            self.NORTAB_FILE = ""
+        self.SCRATCH_DIR=data[data_index+14][0]
+        self.BIN_WIDTH,self.BIN_MAXR=data[data_index+15][:2]
+        self.LASTP_SAMPLE_TYPE,self.LPS_A,self.LPS_B,self.EXTRA_NORM,self.EXTRA_NORM_ERROR=data[data_index+16][:5]
+        self.ANC_ENERGY,self.REG_GAMMA,self.ECLSTR1,self.DCLSTR1,self.ECLSTR2,self.DCLSTR2=data[data_index+17][:6]
+        self.MD_TYPE,self.NUMR,self.DELR=data[data_index+18][:3]
+        self.NUMX,self.XMAX=data[data_index+19][:2]
+        self.NUMQ,self.QMIN,self.QMAX=data[data_index+20][:3]
 #-----------------------------------------------------------------------
     def Write(self, out_file):
         file = open(out_file.strip("\'"), 'w')
         file.write(self.BASIS+"\n")
+        file.write(self.CONST_FILE+"\n")
+        file.write(" ".join([self.L2BP_FILE,self.L3BP_FILE])+"\n")
+        file.write(" ".join([self.LKE,self.LEMP])+"\n")
         file.write(self.BRA_EQ_KET+"\n")
         file.write(self.BRA_TYPE+"\n")
         self.INPUT_BRA.Write(self.BRA_TYPE,file)
@@ -134,25 +148,26 @@ class control_t:
             self.INPUT_KET.Write(self.KET_TYPE,file)
 #----------------------------------------------------------------------
         file.write(" ".join([self.RW_WALK,self.WALK_FILE])+"\n")
-        file.write(self.CONST_FILE+"\n")
-        file.write(" ".join([self.L2BP_FILE,self.L3BP_FILE])+"\n")
-        file.write(" ".join([self.LKE,self.LEMP])+"\n")
         file.write(self.RNG_SEED+"\n")
         file.write(" ".join([self.NUM_BLOCKS,self.BLOCK_SIZE,self.NUM_WALKERS_PER_NODE])+"\n")
         file.write(" ".join([self.BURN_IN_COUNT,self.NUM_MOVES_BETWEEN])+"\n")
         file.write(self.PARTICLE_MAX_DX+"\n")
+        file.write(" ".join([self.SAMPLE_L2,self.RSAM,self.PSAM])+"\n")
         file.write(" ".join([self.NPTS,self.NPTS_IN_ONE_FERMI,self.FD_FACTOR])+"\n")
         file.write(" ".join([self.SS_LIMIT,self.SP_LIMIT,self.SD_LIMIT])+"\n")
         file.write(self.BOX_SIZE+"\n")
-        file.write(" ".join([self.SAMPLE_L2,self.RSAM,self.PSAM])+"\n")
+        file.write(" ".join([self.NLOPT_METHOD,self.NUM_OPT_WALKS,str(self.NUM_OPT_EVALUATIONS)])+"\n")
+        file.write(" ".join([self.LIMIT_CHARGE_RADII,self.NEUTRON_RADIUS_LIMIT,self.PROTON_RADIUS_LIMIT])+"\n")
+        file.write(self.OPTIMIZATION_INPUT_FILE+"\n")
+        file.write(self.OPTIMIZED_DECK_FILE+"\n")
+        file.write(" ".join([self.DO_GROUP,self.GROUP_FILE,self.NORTAB_FILE])+"\n")
+        file.write(self.SCRATCH_DIR+"\n")
         file.write(" ".join([self.BIN_WIDTH,self.BIN_MAXR])+"\n")
         file.write(" ".join([self.LASTP_SAMPLE_TYPE,self.LPS_A,self.LPS_B,self.EXTRA_NORM,self.EXTRA_NORM_ERROR])+"\n")
         file.write(" ".join([self.ANC_ENERGY,self.REG_GAMMA,self.ECLSTR1,self.DCLSTR1,self.ECLSTR2,self.DCLSTR2])+"\n")
-        file.write(" ".join([self.DO_GROUP,self.GROUP_FILE,self.NORTAB_FILE])+"\n")
-        file.write(" ".join([self.NLOPT_METHOD,self.NUM_OPT_WALKS,str(self.NUM_OPT_EVALUATIONS)])+"\n")
-        file.write(self.OPTIMIZATION_INPUT_FILE+"\n")
-        file.write(self.OPTIMIZED_DECK_FILE+"\n")
-        file.write(self.SCRATCH_DIR)
+        file.write(" ".join([str(self.MD_TYPE),str(self.NUMR),self.DELR])+"\n")
+        file.write(" ".join([str(self.NUMX),self.XMAX])+"\n")
+        file.write(" ".join([str(self.NUMQ),self.QMIN,self.QMAX]))
         file.close()
 #----------------------------------------------------------------------
     def AddPrefix(self,prefix):
