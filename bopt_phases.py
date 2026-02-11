@@ -3,6 +3,9 @@
 -----------------------------------------------------------------------
 Bound-state optimizer with ESEP scan + PHASED correlation optimization.
 
+If no ALPHA_DIR is provided, the run starts from the ctrl-default deck
+(no alpha seeding).
+
 Per ESEP scale:
   Phase 0: optimize MAIN (non-SS) correlations (ESEP + global corr)
   Phase 1: optimize FIRST SS block only (SS[0])
@@ -139,10 +142,6 @@ def setup_main_directory(util):
         util.WORKING_DIR = f"{util.WORKING_DIR}{util.NAME}-{datetime.now().strftime('%Y-%m-%d_%H-%M')}/"
         os.mkdir(util.WORKING_DIR)
 
-    ensure_dir(f"{util.WORKING_DIR}results/")
-    ensure_dir(f"{util.WORKING_DIR}logs/")
-    ensure_dir(f"{util.WORKING_DIR}dk/")
-    ensure_dir(f"{util.WORKING_DIR}opt/")
     ensure_dir(f"{util.NQMCC_DIR}walks")
 
 def setup_potential_pair_directory(util, pair_name):
@@ -433,7 +432,6 @@ def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index, step=0.2, star
                 best_dk_scale = dk_out
                 best_opt_scale = opt_file
                 load_dk_unquoted(target, best_dk_scale)
-                #print(f"    debug(post): best_e_scale={best_e_scale:.12f}  best_dk_scale={best_dk_scale}")
                 print(f"  ✅ {phase_name}: E={best_e_scale:.6f}  ΔE={(best_e_scale-e0):.6f}")
                 return True
             else:
@@ -498,7 +496,6 @@ def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index, step=0.2, star
         "FINAL_OPT": final_opt,
         "DK_BACKUP": dk_backup,
         "ATTEMPTS": attempts,
-        "PHASE_SCALES": PHASE_SCALES,
     }
     with open(f"{pot_dir}{pair_name}_results.json", "w") as f:
         json.dump(result, f, indent=2)
@@ -510,44 +507,96 @@ def run(util, step=0.2, start_scale=0.0):
     setup_main_directory(util)
 
     metadata = {
-        "timestamp": datetime.now().isoformat(timespec="seconds"),
-        "working_dir": util.WORKING_DIR,
-        "nqmcc_dir": util.NQMCC_DIR,
-        "ctrl_file": util.CTRL_FILE,
-        "opt_scale": float(util.OPT_SCALE),
-        "esep_scale": float(util.ESEP_SCALE),
-        "phase_scales": PHASE_SCALES,
-        "step": step,
-        "start_scale": start_scale,
-        "alpha_dir": getattr(util, "ALPHA_DIR", None),
-        "potential_pairs": [],
+        "timestamp": datetime.now().isoformat(),
+        "optimization_settings": {
+            "opt_scale": util.OPT_SCALE,
+            "num_opt_evaluations": util.NUM_OPT_EVALUATIONS,
+            "esep_scale": float(util.ESEP_SCALE),
+            "step_size": step,
+            "start_scale": start_scale,
+            "phase_scales": PHASE_SCALES,
+        }
     }
 
-    results = []
-    for i in range(len(util.TWO_BODY_FILES)):
-        pair_name = create_pair_name(util.TWO_BODY_FILES[i], util.THREE_BODY_FILES[i])
-        pot_dir = setup_potential_pair_directory(util, pair_name)
+    # Setup output capture
+    opt_output_lines = []
+    
+    class OutputCapture:
+        def __init__(self):
+            self.original_print = print
+            
+        def captured_print(self, *args, **kwargs):
+            # Capture to our list
+            line = ' '.join(str(arg) for arg in args)
+            opt_output_lines.append(line)
+            # Still print to console using original print
+            self.original_print(*args, **kwargs)
+    
+    # Create output capture instance
+    output_capture = OutputCapture()
+    
+    # Monkey patch print in builtins and this module
+    import builtins
+    original_builtins_print = builtins.print
+    builtins.print = output_capture.captured_print
+    
+    # Also patch print in global scope of this module
+    globals()['print'] = output_capture.captured_print
 
-        metadata["potential_pairs"].append({
-            "pair": pair_name,
-            "two_body": util.TWO_BODY_FILES[i],
-            "three_body": util.THREE_BODY_FILES[i],
-            "pot_dir": pot_dir,
-        })
+    try:
+        results = []
+        for i in range(len(util.TWO_BODY_FILES)):
+            pair_name = create_pair_name(util.TWO_BODY_FILES[i], util.THREE_BODY_FILES[i])
+            pot_dir = setup_potential_pair_directory(util, pair_name)
 
-        try:
-            res = BoundStateOptimizePhases(util, pair_name, pot_dir, i, step=step, start_scale=start_scale)
-            results.append(res)
-        except Exception as ex:
-            print(f"ERROR optimizing {pair_name}: {ex}")
-            results.append({"POTENTIAL_PAIR": pair_name, "ERROR": str(ex)})
+            print("\n" + "=" * 72)
+            print(f"PROCESSING {i+1}/{len(util.TWO_BODY_FILES)}: {pair_name}")
+            print("=" * 72)
 
-    ensure_dir(f"{util.WORKING_DIR}results/")
-    with open(f"{util.WORKING_DIR}results/run_metadata.json", "w") as f:
-        json.dump(metadata, f, indent=2)
+            try:
+                res = BoundStateOptimizePhases(util, pair_name, pot_dir, i, step=step, start_scale=start_scale)
+                results.append(res)
+            except Exception as ex:
+                print(f"ERROR optimizing {pair_name}: {ex}")
+                results.append({"POTENTIAL_PAIR": pair_name, "ERROR": str(ex)})
 
-    with open(f"{util.WORKING_DIR}results/run_results.json", "w") as f:
-        json.dump(results, f, indent=2)
+    finally:
+        # Restore original print functions
+        builtins.print = original_builtins_print
+        globals()['print'] = original_builtins_print
+
+    # Prepare combined results with metadata (excluding attempts from individual results)
+    processed_results = []
+    for result in results:
+        # Create a copy without attempts for combined results
+        clean_result = {k: v for k, v in result.items() if k != "ATTEMPTS"}
+        processed_results.append(clean_result)
+
+    combined_data = {
+        "run_metadata": metadata,
+        "results": processed_results
+    }
+
+    out = f"{util.WORKING_DIR}combined_results.json"
+    with open(out, "w") as f:
+        json.dump(combined_data, f, indent=2)
+    print("\nSaved:", out)
+
+    # Save all captured output to .out file
+    out_file = f"{util.WORKING_DIR}optimization_log.out"
+    with open(out_file, "w") as f:
+        f.write("# Optimization Log\n")
+        f.write(f"# Generated: {datetime.now().isoformat()}\n")
+        f.write(f"# OPT_SCALE: {util.OPT_SCALE}\n")
+        f.write(f"# NUM_OPT_EVALUATIONS: {util.NUM_OPT_EVALUATIONS}\n")
+        f.write(f"# ESEP_SCALE: {util.ESEP_SCALE}\n")
+        f.write(f"# STEP_SIZE: {step}\n")
+        f.write(f"# START_SCALE: {start_scale}\n")
+        f.write(f"# PHASE_SCALES: {PHASE_SCALES}\n")
+        f.write("#" + "="*70 + "\n\n")
+        for line in opt_output_lines:
+            f.write(line + "\n")
+    print("Saved optimization log:", out_file)
 
     return results
 
