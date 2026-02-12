@@ -208,7 +208,7 @@ def try_optimize(target, opt_file, dk_out, log_prefix, instructions, e_ref, requ
     return e, v, True, ""
 
 #-----------------------------------------------------------------------
-def BoundStateOptimize(util, pair_name, pot_dir, pot_index, step=0.2):
+def BoundStateOptimize(util, pair_name, pot_dir, pot_index, step=0.1):
     print("=" * 72)
     print(f"{pair_name}: building target + optional alpha-seeding + initial Evaluate")
     print("=" * 72)
@@ -243,6 +243,7 @@ def BoundStateOptimize(util, pair_name, pot_dir, pot_index, step=0.2):
 
     esep_scale = float(util.ESEP_SCALE)
     opt_scale = float(util.OPT_SCALE)
+    opt_3b = opt_scale + 0.2
     
     instructions_base = [
         {"ss": False, "key": "ESEP", "idx": 0, "scale": esep_scale, "flat": 0.0},
@@ -252,38 +253,41 @@ def BoundStateOptimize(util, pair_name, pot_dir, pot_index, step=0.2):
         {"ss": False, "key": "FSCAL", "all": True, "scale": opt_scale, "flat": 0.0},
         {"ss": False, "key": "ALPHA", "all": True, "scale": opt_scale, "flat": 0.0},
         {"ss": False, "key": "BETA",  "all": True, "scale": opt_scale, "flat": 0.0},
-        {"ss": False, "key": "DELTA",   "scale": 0, "flat": opt_scale},
-        {"ss": False, "key": "EPSILON", "scale": 0, "flat": opt_scale},
-        {"ss": False, "key": "THETA",   "scale": 0, "flat": opt_scale},
-        {"ss": False, "key": "UPSILON", "scale": 0, "flat": opt_scale},
-        {"ss": False, "key": "RSCAL",   "scale": 0, "flat": opt_scale},
-        {"ss": False, "key": "USCAL",   "scale": 0, "flat": opt_scale},
+        {"ss": False, "key": "DELTA",   "scale": 0, "flat": opt_3b},
+        {"ss": False, "key": "EPSILON", "scale": 0, "flat": opt_3b},
+        {"ss": False, "key": "THETA",   "scale": 0, "flat": opt_3b},
+        {"ss": False, "key": "UPSILON", "scale": 0, "flat": opt_3b},
+        {"ss": False, "key": "RSCAL",   "scale": 0, "flat": opt_3b},
+        {"ss": False, "key": "USCAL",   "scale": 0, "flat": opt_3b},
         {"ss": False, "key": "QPS1",  "scale": opt_scale, "flat": 0.0},
         {"ss": False, "key": "QPS2",  "scale": opt_scale, "flat": 0.0},
         {"ss": False, "key": "QSSS1", "scale": opt_scale, "flat": 0.0},
     ]
 
-    # Check if spatial symmetries exist and use the first one (index 0)
+    # Check if spatial symmetries exist and optimize all of them
     instructions = instructions_base
     if hasattr(target0.DK, 'SS') and len(target0.DK.SS) > 0:
-        ssi = 0  # Use first spatial symmetry
-        instructions_ss = [
-            {"ss":True,"ss_idx":ssi,"key":"SPU"  ,"scale":opt_scale, "flat":0.0},
-            {"ss":True,"ss_idx":ssi,"key":"SPV"  ,"scale":opt_scale, "flat":0.0},
-            {"ss":True,"ss_idx":ssi,"key":"SPA"  ,"scale":opt_scale, "flat":0.0},
-            {"ss":True,"ss_idx":ssi,"key":"SPB"  ,"scale":opt_scale, "flat":0.0},
-            {"ss":True,"ss_idx":ssi,"key":"SPC"  ,"scale":opt_scale, "flat":0.0},
-            {"ss":True,"ss_idx":ssi,"key":"SPK"  ,"scale":opt_scale, "flat":0.0},
-            {"ss":True,"ss_idx":ssi,"key":"SPL"  ,"scale":opt_scale, "flat":0.0},
-            {"ss":True,"ss_idx":ssi,"key":"WSR"  ,"scale":opt_scale, "flat":0.0},
-            {"ss":True,"ss_idx":ssi,"key":"WSA"  ,"scale":opt_scale, "flat":0.0}
-        ]
+        instructions_ss = []
+        for ssi in range(len(target0.DK.SS)):
+            instructions_ss += [
+                {"ss":True,"ss_idx":ssi,"key":"SPU"  ,"scale":0.0, "flat":opt_scale},
+                {"ss":True,"ss_idx":ssi,"key":"SPV"  ,"scale":0.0, "flat":opt_scale},
+                {"ss":True,"ss_idx":ssi,"key":"SPA"  ,"scale":0.0, "flat":opt_scale},
+                {"ss":True,"ss_idx":ssi,"key":"SPB"  ,"scale":0.0, "flat":opt_scale},
+                {"ss":True,"ss_idx":ssi,"key":"SPC"  ,"scale":0.0, "flat":opt_scale},
+                {"ss":True,"ss_idx":ssi,"key":"SPK"  ,"scale":0.0, "flat":opt_scale},
+                {"ss":True,"ss_idx":ssi,"key":"SPL"  ,"scale":0.0, "flat":opt_scale},
+                {"ss":True,"ss_idx":ssi,"key":"WSR"  ,"scale":0.0, "flat":opt_scale},
+                {"ss":True,"ss_idx":ssi,"key":"WSA"  ,"scale":0.0, "flat":opt_scale},
+                {"ss": True, "ss_idx": ssi, "key": "BETALSN", "scale": 0.0, "flat": opt_scale}
+            ]
         instructions = instructions_base + instructions_ss
-        print(f"Spatial symmetries detected: optimizing SS[{ssi}] parameters")
+        print(f"Spatial symmetries detected: optimizing {len(target0.DK.SS)} SS parameters")
+
 
     max_scale = esep_scale
     scales = []
-    x = 0.0
+    x = 0.2
     while x <= max_scale + 1e-12:
         scales.append(round(x, 10))
         x += float(step)

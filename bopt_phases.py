@@ -253,7 +253,12 @@ def build_instructions_base(esep_scale, opt_scale, opt_3b, target_dk=None):
         {"ss": False, "key": "ESEP", "idx": 1, "scale": esep_scale, "flat": 0.0},
         {"ss": False, "key": "ESEP", "idx": 2, "scale": esep_scale, "flat": 0.0},
         {"ss": False, "key": "ESEP", "idx": 3, "scale": esep_scale, "flat": 0.0},
+<<<<<<< Updated upstream
 
+=======
+        
+        {"ss": False, "key": "ETA",  "all": True, "scale": 0.0, "flat": 0.0065},
+>>>>>>> Stashed changes
         {"ss": False, "key": "ZETA",  "all": True, "scale": opt_scale, "flat": 0.0},
         {"ss": False, "key": "FSCAL", "all": True, "scale": opt_scale, "flat": 0.0},
         {"ss": False, "key": "ALPHA", "all": True, "scale": opt_scale, "flat": 0.0},
@@ -610,4 +615,8 @@ if __name__ == "__main__":
     args = p.parse_args()
 
     util = utility_t(args.utility)
+<<<<<<< Updated upstream
     run(util, step=args.step, start_scale=args.start)
+=======
+    run(util, step=args.step, start_scale=args.start)
+>>>>>>> Stashed changes
