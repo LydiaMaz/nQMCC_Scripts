@@ -206,8 +206,6 @@ def try_optimize(target, opt_file, dk_out, log_prefix, instructions, e_ref, requ
     try:
         with redirect_stdout(buf):
             e, v = target.Optimize(opt, quote_path(dk_out), True, log_prefix)
-            print("Using deck:", target.CTRL.INPUT_BRA.DECK_FILE)
-            print("Writing ctrl:", target.CTRL.FILE_NAME)
 
     except Exception as ex:
         with open(log_txt, "w") as f:
@@ -253,12 +251,8 @@ def build_instructions_base(esep_scale, opt_scale, opt_3b, target_dk=None):
         {"ss": False, "key": "ESEP", "idx": 1, "scale": esep_scale, "flat": 0.0},
         {"ss": False, "key": "ESEP", "idx": 2, "scale": esep_scale, "flat": 0.0},
         {"ss": False, "key": "ESEP", "idx": 3, "scale": esep_scale, "flat": 0.0},
-<<<<<<< Updated upstream
 
-=======
-        
         {"ss": False, "key": "ETA",  "all": True, "scale": 0.0, "flat": 0.0065},
->>>>>>> Stashed changes
         {"ss": False, "key": "ZETA",  "all": True, "scale": opt_scale, "flat": 0.0},
         {"ss": False, "key": "FSCAL", "all": True, "scale": opt_scale, "flat": 0.0},
         {"ss": False, "key": "ALPHA", "all": True, "scale": opt_scale, "flat": 0.0},
@@ -511,6 +505,30 @@ def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index, step=0.2, star
 def run(util, step=0.2, start_scale=0.0):
     setup_main_directory(util)
 
+    # Extract radius settings from control file
+    pair_name_temp = create_pair_name(util.TWO_BODY_FILES[0], util.THREE_BODY_FILES[0])
+    pot_dir_temp = setup_potential_pair_directory(util, pair_name_temp)
+    target_temp = build_target(util, pot_dir_temp, 0)
+    
+    limit_radii_str = str(getattr(target_temp.CTRL, "LIMIT_CHARGE_RADII", ".false.")).strip()
+    limit_radii = limit_radii_str.lower() == ".true."
+    
+    radius_settings = {}
+    if limit_radii:
+        radius_settings = {
+            "limit_charge_radii": True,
+            "neutron_radius_limit": float(getattr(target_temp.CTRL, "NEUTRON_RADIUS_LIMIT", None)),
+            "proton_radius_limit": float(getattr(target_temp.CTRL, "PROTON_RADIUS_LIMIT", None))
+        }
+        print(f"LIMIT_CHARGE_RADII: True")
+        print(f"NEUTRON_RADIUS_LIMIT: {radius_settings['neutron_radius_limit']}")
+        print(f"PROTON_RADIUS_LIMIT: {radius_settings['proton_radius_limit']}")
+    else:
+        radius_settings = {
+            "limit_charge_radii": False
+        }
+        print(f"LIMIT_CHARGE_RADII: False")
+
     metadata = {
         "timestamp": datetime.now().isoformat(),
         "optimization_settings": {
@@ -520,7 +538,8 @@ def run(util, step=0.2, start_scale=0.0):
             "step_size": step,
             "start_scale": start_scale,
             "phase_scales": PHASE_SCALES,
-        }
+        },
+        "radius_settings": radius_settings
     }
 
     # Setup output capture
@@ -598,6 +617,10 @@ def run(util, step=0.2, start_scale=0.0):
         f.write(f"# STEP_SIZE: {step}\n")
         f.write(f"# START_SCALE: {start_scale}\n")
         f.write(f"# PHASE_SCALES: {PHASE_SCALES}\n")
+        f.write(f"# LIMIT_CHARGE_RADII: {radius_settings['limit_charge_radii']}\n")
+        if radius_settings['limit_charge_radii']:
+            f.write(f"# NEUTRON_RADIUS_LIMIT: {radius_settings['neutron_radius_limit']}\n")
+            f.write(f"# PROTON_RADIUS_LIMIT: {radius_settings['proton_radius_limit']}\n")
         f.write("#" + "="*70 + "\n\n")
         for line in opt_output_lines:
             f.write(line + "\n")
@@ -615,8 +638,4 @@ if __name__ == "__main__":
     args = p.parse_args()
 
     util = utility_t(args.utility)
-<<<<<<< Updated upstream
     run(util, step=args.step, start_scale=args.start)
-=======
-    run(util, step=args.step, start_scale=args.start)
->>>>>>> Stashed changes
