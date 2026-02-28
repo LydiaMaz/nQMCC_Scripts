@@ -245,14 +245,14 @@ SS_KEYS = [
     "WSE", "WSV", "WSR", "WSA", "WBRHO", "WBALPH"
 ]
 
-def build_instructions_base(esep_scale, opt_scale, opt_3b, target_dk=None):
+def build_instructions_base(esep_scale, opt_scale, opt_3b, eta_flat=0.0, target_dk=None):
     inst = [
         {"ss": False, "key": "ESEP", "idx": 0, "scale": esep_scale, "flat": 0.0},
         {"ss": False, "key": "ESEP", "idx": 1, "scale": esep_scale, "flat": 0.0},
         {"ss": False, "key": "ESEP", "idx": 2, "scale": esep_scale, "flat": 0.0},
         {"ss": False, "key": "ESEP", "idx": 3, "scale": esep_scale, "flat": 0.0},
 
-        {"ss": False, "key": "ETA",  "all": True, "scale": 0.0, "flat": 0.0065},
+        {"ss": False, "key": "ETA",  "all": True, "scale": 0.0, "flat": float(eta_flat)},
         {"ss": False, "key": "ZETA",  "all": True, "scale": opt_scale, "flat": 0.0},
         {"ss": False, "key": "FSCAL", "all": True, "scale": opt_scale, "flat": 0.0},
         {"ss": False, "key": "ALPHA", "all": True, "scale": opt_scale, "flat": 0.0},
@@ -369,6 +369,9 @@ def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index, step=0.2, star
 
     esep_scale_max = float(util.ESEP_SCALE)
     opt_scale_base = float(util.OPT_SCALE)
+    eta_flat = float(util.ETA_FLAT)
+    three_body_flat = float(util.THREE_BODY_FLAT)
+    ss_flat = float(util.SS_FLAT)
 
     n_ss0 = len(get_ss_list(target0.DK))
     if n_ss0 > 0:
@@ -439,7 +442,8 @@ def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index, step=0.2, star
                 return False
 
         opt_scale_p0 = opt_scale_base * PHASE_SCALES["p0_main"]
-        inst_p0 = build_instructions_base(esep_scale_max, opt_scale_p0, opt_scale_p0, target.DK)
+        three_body_flat_p0 = three_body_flat * PHASE_SCALES["p0_main"]
+        inst_p0 = build_instructions_base(esep_scale_max, opt_scale_p0, three_body_flat_p0, eta_flat, target.DK)
         ok0 = run_phase("p0_main", inst_p0)
 
         if n_ss <= 0:
@@ -447,22 +451,26 @@ def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index, step=0.2, star
                 best = {"scale": scale, "tag": tag, "energy": best_e_scale, "variance": best_v_scale, "dk": best_dk_scale, "opt": best_opt_scale}
             continue
 
-        opt_scale_p1 = opt_scale_base * PHASE_SCALES["p1_ss0"]
-        inst_ss0 = build_instructions_ss([0], flat_scale=opt_scale_p1)
+        s0_flat_p1 = ss_flat * PHASE_SCALES["p1_ss0"]
+        inst_ss0 = build_instructions_ss([0], flat_scale=s0_flat_p1)
         ok1 = run_phase("p1_ss0", inst_ss0)
         
         
         rest = list(range(1, n_ss))
         if rest:
+            ss_flat_p2 = ss_flat * PHASE_SCALES["p2_ss_rest"]
             opt_scale_p2 = opt_scale_base * PHASE_SCALES["p2_ss_rest"]
             esep_scale_p2 = esep_scale_max * PHASE_SCALES["p2_ss_rest"]
-            inst_base_p2 = build_instructions_base(esep_scale_p2, opt_scale_p2, opt_scale_p2, target.DK)
-            inst_ss_rest = build_instructions_ss(rest, flat_scale=opt_scale_p2)
+            three_body_flat_p2 = three_body_flat * PHASE_SCALES["p2_ss_rest"]
+            inst_base_p2 = build_instructions_base(esep_scale_p2, opt_scale_p2, three_body_flat_p2, eta_flat, target.DK)
+            inst_ss_rest = build_instructions_ss(rest, flat_scale=ss_flat_p2)
             ok2 = run_phase("p2_ss_rest", inst_base_p2 + inst_ss_rest)
 
         opt_scale_p3 = opt_scale_base * PHASE_SCALES["p3_full"]
-        inst_base_p3 = build_instructions_base(esep_scale_max, opt_scale_p3, opt_scale_p3, target.DK)
-        inst_ss_all = build_instructions_ss(list(range(n_ss)), flat_scale=opt_scale_p3)
+        ss_flat_p3 = ss_flat * PHASE_SCALES["p3_full"]
+        three_body_flat_p3 = three_body_flat * PHASE_SCALES["p3_full"]
+        inst_base_p3 = build_instructions_base(esep_scale_max, opt_scale_p3, three_body_flat_p3, eta_flat, target.DK)
+        inst_ss_all = build_instructions_ss(list(range(n_ss)), flat_scale=ss_flat_p3)
         ok3 = run_phase("p3_full", inst_base_p3 + inst_ss_all)
 
         if best is None or best_e_scale < best["energy"]:
