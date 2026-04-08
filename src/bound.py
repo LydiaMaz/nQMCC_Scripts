@@ -129,24 +129,6 @@ def make_ctrl_paths_relative(ctrl_in, nqmcc_dir, ctrl_out):
     with open(ctrl_out, "w") as f:
         f.write(text)
 
-def setup_main_directory(util):
-    try:
-        os.mkdir(util.WORKING_DIR)
-    except FileExistsError:
-        util.WORKING_DIR = f"{util.WORKING_DIR}{util.NAME}-{datetime.now().strftime('%Y-%m-%d_%H-%M')}/"
-        os.mkdir(util.WORKING_DIR)
-    ensure_dir(f"{util.NQMCC_DIR}walks")
-
-def setup_potential_pair_directory(util, pair_name):
-    pot_dir = f"{util.WORKING_DIR}{pair_name}/"
-    ensure_dir(pot_dir)
-    ensure_dir(f"{pot_dir}ctrl")
-    ensure_dir(f"{pot_dir}logs")
-    ensure_dir(f"{pot_dir}dk")
-    ensure_dir(f"{pot_dir}opt")
-    ensure_dir(f"{util.NQMCC_DIR}walks")
-    return pot_dir
-
 def build_target(util, pot_dir, pot_index):
     """Build a fresh wavefunction_t for the given potential pair."""
     base_ctrl_in = strip_quotes(util.CTRL_FILE)
