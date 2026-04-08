@@ -6,7 +6,9 @@ Quantum Monte Carlo Group @ Washington University in St. Louis
 """
 import sys
 import os
+import json
 import argparse
+import builtins
 from datetime import datetime
 #-----------------------------------------------------------------------
 sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
@@ -14,67 +16,99 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
 from utility import utility_t
 from wavefunction import wavefunction_t,InitPShellScattWF
 from bscat import SingleChannelScan
+from bound import BoundStateOptimizePhases
 #-----------------------------------------------------------------------
 def BoundStates(util: utility_t):
 #-----------------------------------------------------------------------
     BREAK="="*72
 #-----------------------------------------------------------------------
-    print("SETTING UP WORKING ENVIORMENT")
+    print("SETTING UP WORKING ENVIRONMENT")
     try:
         os.mkdir(util.WORKING_DIR)
-        os.chdir(util.WORKING_DIR)
     except FileExistsError:
         print("***WORKING DIRECTORY EXISTS***")
         util.WORKING_DIR=f"{util.WORKING_DIR}{util.NAME}-{datetime.now().strftime('%Y-%m-%d_%H-%M')}/"
         print(f"CURRENT WORKING DIRECTORY: {util.WORKING_DIR}")
         os.mkdir(util.WORKING_DIR)
-        os.chdir(util.WORKING_DIR)
-#-----------------------------------------------------------------------
-    os.mkdir("ctrl")
-    os.mkdir("logs")
-    os.mkdir("dk")
-    os.mkdir("opt")
-#-----------------------------------------------------------------------
+    os.makedirs(f"{util.NQMCC_DIR}walks", exist_ok=True)
     print("... DONE")
     print(BREAK)
 #-----------------------------------------------------------------------
-    print("SETTING UP TARGET WAVEFUNCTION")
-    target = wavefunction_t(util.CTRL_FILE,util.NQMCC_DIR,util.BIN_DIR,util.RUN_CMD)
-    target_label=target.DK.NAME.strip("\'")
-    target.CTRL.FILE_NAME=f"{util.WORKING_DIR}target.ctrl"
-    target.CTRL.NUM_BLOCKS=util.NUM_BLOCKS
-    target.CTRL.BLOCK_SIZE=util.BLOCK_SIZE
-    target.CTRL.WALKERS_PER_NODE=util.WALKERS_PER_NODE
-    target.CTRL.NUM_OPT_EVALUATIONS=util.NUM_OPT_EVALUATIONS
-    print("... DONE")
-    print(BREAK)
+    # Capture all print output to be written to a log file
+    opt_output_lines=[]
+    class _CapturingPrint:
+        def __init__(self,real_print):
+            self._real=real_print
+        def __call__(self,*args,**kwargs):
+            opt_output_lines.append(" ".join(str(a) for a in args))
+            self._real(*args,**kwargs)
+    original_print=builtins.print
+    builtins.print=_CapturingPrint(original_print)
 #-----------------------------------------------------------------------
-    for const,pot2b,pot3b in zip(util.CONSTANTS_FILES,util.TWO_BODY_FILES,util.THREE_BODY_FILES):
-        pot2b_label=pot2b.split(".")[0]
-        pot3b_label=pot3b.split(".")[0]
-        tname=f"{target_label}.{pot2b_label}.{pot3b_label}"
-        target.CTRL.CONST_FILE=f"'{util.NQMCC_DIR}constants/{const}'"
-        target.CTRL.L2BP_FILE=f"'{util.NQMCC_DIR}pots/{pot2b}'"
-        target.CTRL.L3BP_FILE=f"'{util.NQMCC_DIR}pots/{pot3b}'"
-        print(f"CONSTANTS: {const}")
-        print(f"V2B: {pot2b}")
-        print(f"V3B: {pot3b}")
-        print(BREAK)
+    try:
+        results=[]
+        for i,(const,pot2b,pot3b) in enumerate(zip(util.CONSTANTS_FILES,util.TWO_BODY_FILES,util.THREE_BODY_FILES)):
+            pair_name=f"{pot2b.split('.')[0]}.{pot3b.split('.')[0]}"
+            pot_dir=f"{util.WORKING_DIR}{pair_name}/"
+            os.makedirs(f"{pot_dir}ctrl", exist_ok=True)
+            os.makedirs(f"{pot_dir}logs", exist_ok=True)
+            os.makedirs(f"{pot_dir}dk",   exist_ok=True)
+            os.makedirs(f"{pot_dir}opt",  exist_ok=True)
+            print(f"\n{BREAK}")
+            print(f"PROCESSING {i+1}/{len(util.TWO_BODY_FILES)}: {pair_name}")
+            print(f"CONSTANTS: {const}")
+            print(f"V2B: {pot2b}")
+            print(f"V3B: {pot3b}")
+            print(BREAK)
 #-----------------------------------------------------------------------
-        
-        print(f"EVALUATING TARGET: {tname}")
-        ecore,vcore=target.Evaluate(True,tname)
-        print(f"E = {ecore:.4f} +- {vcore:.4f}")
+            try:
+                res=BoundStateOptimizePhases(util,pair_name,pot_dir,i)
+                results.append(res)
+            except Exception as ex:
+                print(f"ERROR optimizing {pair_name}: {ex}")
+                results.append({"POTENTIAL_PAIR":pair_name,"ERROR":str(ex)})
+#-----------------------------------------------------------------------
+    finally:
+        builtins.print=original_print
+#-----------------------------------------------------------------------
+    # Write combined results across all potential pairs
+    processed_results=[{k:v for k,v in r.items() if k!="ATTEMPTS"} for r in results]
+    combined_data={
+        "run_metadata":{
+            "timestamp":datetime.now().isoformat(),
+            "optimization_mode":"phased",
+            "optimization_settings":{
+                "opt_scale":util.OPT_SCALE,
+                "num_opt_evaluations":util.NUM_OPT_EVALUATIONS,
+                "esep_scale":float(util.ESEP_SCALE),
+                "eta_flat":util.ETA_FLAT,
+                "three_body_flat":util.THREE_BODY_FLAT,
+                "ss_flat":util.SS_FLAT,
+            },
+        },
+        "results":processed_results,
+    }
+    out=f"{util.WORKING_DIR}combined_results.json"
+    with open(out,"w") as f:
+        json.dump(combined_data,f,indent=2)
+    print("\nSaved:",out)
+#-----------------------------------------------------------------------
+    # Write full log with settings header
+    out_file=f"{util.WORKING_DIR}optimization_log.out"
+    with open(out_file,"w") as f:
+        f.write("# Optimization Log (Phased)\n")
+        f.write(f"# Generated:           {datetime.now().isoformat()}\n")
+        f.write(f"# OPT_SCALE:           {util.OPT_SCALE}\n")
+        f.write(f"# NUM_OPT_EVALUATIONS: {util.NUM_OPT_EVALUATIONS}\n")
+        f.write(f"# ESEP_SCALE:          {util.ESEP_SCALE}\n")
+        f.write(f"# ETA_FLAT:            {util.ETA_FLAT}\n")
+        f.write(f"# THREE_BODY_FLAT:     {util.THREE_BODY_FLAT}\n")
+        f.write(f"# SS_FLAT:             {util.SS_FLAT}\n")
+        f.write("#" + "="*70 + "\n\n")
+        for line in opt_output_lines:
+            f.write(line+"\n")
+    print("Saved optimization log:",out_file)
 
-#-----------------------------------------------------------------------
-        print(BREAK)
-#-----------------------------------------------------------------------
-# 1. initialize target wave function
-# 2. loop over potentials
-# 3. set up optimization file
-# 4. optimize the wave function
-# 5. evaluate energy 
-# 6. log results
 
 def SingleChannelScattering(util: utility_t):
 #-----------------------------------------------------------------------
