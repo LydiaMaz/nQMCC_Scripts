@@ -546,6 +546,9 @@ def run(util, step=0.2, start_scale=0.0):
             "step_size": step,
             "start_scale": start_scale,
             "phase_scales": PHASE_SCALES,
+            "eta_flat": util.ETA_FLAT,
+            "three_body_flat": util.THREE_BODY_FLAT,
+            "ss_flat": util.SS_FLAT,
         },
         "radius_settings": radius_settings
     }
@@ -625,6 +628,9 @@ def run(util, step=0.2, start_scale=0.0):
         f.write(f"# STEP_SIZE: {step}\n")
         f.write(f"# START_SCALE: {start_scale}\n")
         f.write(f"# PHASE_SCALES: {PHASE_SCALES}\n")
+        f.write(f"# ETA_FLAT: {util.ETA_FLAT}\n")
+        f.write(f"# THREE_BODY_FLAT: {util.THREE_BODY_FLAT}\n")
+        f.write(f"# SS_FLAT: {util.SS_FLAT}\n")
         f.write(f"# LIMIT_CHARGE_RADII: {radius_settings['limit_charge_radii']}\n")
         if radius_settings['limit_charge_radii']:
             f.write(f"# NEUTRON_RADIUS_LIMIT: {radius_settings['neutron_radius_limit']}\n")
