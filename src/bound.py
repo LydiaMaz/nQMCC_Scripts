@@ -346,12 +346,19 @@ def run_phase(target, phase_name, instructions, scale, tag,
 # ---------------------------------------------------------------------------
 
 def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index, step=0.2, start_scale=0.0):
-    print("=" * 72)
     print(f"{pair_name}: building target + optional alpha-seeding + initial Evaluate")
     print("=" * 72)
 
     # --- Build initial target and optionally seed from a He-4 alpha core ---
     target0 = build_target(util, pot_dir, pot_index)
+
+    limit_radii = str(getattr(target0.CTRL, "LIMIT_CHARGE_RADII", ".false.")).strip().lower() == ".true."
+    if limit_radii:
+        print(f"LIMIT_CHARGE_RADII:   True")
+        print(f"NEUTRON_RADIUS_LIMIT: {float(getattr(target0.CTRL, 'NEUTRON_RADIUS_LIMIT', None))}")
+        print(f"PROTON_RADIUS_LIMIT:  {float(getattr(target0.CTRL, 'PROTON_RADIUS_LIMIT', None))}")
+    else:
+        print(f"LIMIT_CHARGE_RADII:   False")
 
     starting_deck_label = "ctrl-default"
     if getattr(util, "ALPHA_DIR", None):
