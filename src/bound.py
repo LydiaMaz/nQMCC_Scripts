@@ -345,7 +345,7 @@ def run_phase(target, phase_name, instructions, scale, tag,
 # Main optimizer
 # ---------------------------------------------------------------------------
 
-def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index, step=0.2, start_scale=0.0):
+def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index):
     print(f"{pair_name}: building target + optional alpha-seeding + initial Evaluate")
     print("=" * 72)
 
@@ -389,7 +389,9 @@ def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index, step=0.2, star
     print(f"Saved ORIGINAL DK: {dk_backup}")
 
     # --- Read optimization parameters ---
-    esep_scale_max  = float(util.ESEP_SCALE)
+    esep_start      = float(util.ESEP_START)
+    esep_stop       = float(util.ESEP_STOP)
+    esep_num        = int(util.ESEP_NUM)
     opt_scale_base  = float(util.OPT_SCALE)
     eta_flat        = float(util.ETA_FLAT)
     three_body_flat = float(util.THREE_BODY_FLAT)
@@ -401,15 +403,10 @@ def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index, step=0.2, star
     else:
         print("No SS blocks: only Phase 0 will run per scale")
 
-    # Build the ESEP scale grid
-    scales = []
-    x = float(start_scale)
-    while x <= esep_scale_max + 1e-12:
-        scales.append(round(x, 10))
-        x += float(step)
-    if scales and scales[-1] < esep_scale_max - 1e-12:
-        scales.append(esep_scale_max)
-    print(f"ESEP scan scales: {scales}")
+    # Build the ESEP scale grid from start/stop/num
+    step = (esep_stop - esep_start) / max(esep_num - 1, 1)
+    scales = [round(esep_start + i * step, 10) for i in range(esep_num)]
+    print(f"ESEP scan scales: [{esep_start}, {esep_stop}] n={esep_num} -> {scales}")
 
     attempts = []
     best = None
@@ -445,7 +442,7 @@ def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index, step=0.2, star
         # --- Phase 0: main correlations only ---
         opt_scale_p0    = opt_scale_base  * PHASE_SCALES["p0_main"]
         three_body_p0   = three_body_flat * PHASE_SCALES["p0_main"]
-        inst_p0 = build_instructions_base(esep_scale_max, opt_scale_p0, three_body_p0, eta_flat, target.DK)
+        inst_p0 = build_instructions_base(esep_stop, opt_scale_p0, three_body_p0, eta_flat, target.DK)
         ok0, e, v, dk, opt = run_phase(target, "p0_main", inst_p0, scale, tag, pot_dir, pair_name, attempts, best_e_scale, e0)
         update_best(ok0, e, v, dk, opt)
 
@@ -466,7 +463,7 @@ def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index, step=0.2, star
         rest = list(range(1, n_ss))
         if rest:
             opt_scale_p2  = opt_scale_base  * PHASE_SCALES["p2_ss_rest"]
-            esep_scale_p2 = esep_scale_max  * PHASE_SCALES["p2_ss_rest"]
+            esep_scale_p2 = esep_stop  * PHASE_SCALES["p2_ss_rest"]
             three_body_p2 = three_body_flat * PHASE_SCALES["p2_ss_rest"]
             ss_flat_p2    = ss_flat         * PHASE_SCALES["p2_ss_rest"]
             inst_base_p2  = build_instructions_base(esep_scale_p2, opt_scale_p2, three_body_p2, eta_flat, target.DK)
@@ -478,7 +475,7 @@ def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index, step=0.2, star
         opt_scale_p3  = opt_scale_base  * PHASE_SCALES["p3_full"]
         three_body_p3 = three_body_flat * PHASE_SCALES["p3_full"]
         ss_flat_p3    = ss_flat         * PHASE_SCALES["p3_full"]
-        inst_base_p3  = build_instructions_base(esep_scale_max, opt_scale_p3, three_body_p3, eta_flat, target.DK)
+        inst_base_p3  = build_instructions_base(esep_stop, opt_scale_p3, three_body_p3, eta_flat, target.DK)
         inst_ss_all   = build_instructions_ss(list(range(n_ss)), flat_scale=ss_flat_p3)
         ok3, e, v, dk, opt = run_phase(target, "p3_full", inst_base_p3 + inst_ss_all, scale, tag, pot_dir, pair_name, attempts, best_e_scale, e0)
         update_best(ok3, e, v, dk, opt)

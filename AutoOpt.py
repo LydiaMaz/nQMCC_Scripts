@@ -80,7 +80,7 @@ def BoundStates(util: utility_t):
             "optimization_settings":{
                 "opt_scale":util.OPT_SCALE,
                 "num_opt_evaluations":util.NUM_OPT_EVALUATIONS,
-                "esep_scale":float(util.ESEP_SCALE),
+                "esep_scale":f"[{util.ESEP_START}, {util.ESEP_STOP}] n={util.ESEP_NUM}",
                 "eta_flat":util.ETA_FLAT,
                 "three_body_flat":util.THREE_BODY_FLAT,
                 "ss_flat":util.SS_FLAT,
@@ -100,7 +100,7 @@ def BoundStates(util: utility_t):
         f.write(f"# Generated:           {datetime.now().isoformat()}\n")
         f.write(f"# OPT_SCALE:           {util.OPT_SCALE}\n")
         f.write(f"# NUM_OPT_EVALUATIONS: {util.NUM_OPT_EVALUATIONS}\n")
-        f.write(f"# ESEP_SCALE:          {util.ESEP_SCALE}\n")
+        f.write(f"# ESEP_SCALE:          [{util.ESEP_START}, {util.ESEP_STOP}] n={util.ESEP_NUM}\n")
         f.write(f"# ETA_FLAT:            {util.ETA_FLAT}\n")
         f.write(f"# THREE_BODY_FLAT:     {util.THREE_BODY_FLAT}\n")
         f.write(f"# SS_FLAT:             {util.SS_FLAT}\n")
