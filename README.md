@@ -12,12 +12,11 @@ Juan Jose Silva (WASHU)\
 Maria Piarulli (WASHU)
 
 ## Todo
-1. Bound State optimization
-2. Generate zero deck main program
-3. Improve bounds checking in scan
-4. Update logic for +1 node
-5. Update Documentation
-6. Automate tests
+1. Generate zero deck main program
+2. Improve bounds checking in scan
+3. Update logic for +1 node
+4. Update Documentation
+5. Automate tests
 
 ## Usage
 
@@ -28,7 +27,7 @@ python /absolute/path/to/AutoOpt.py --utility /absolute/path/to/file.util
 ```
 > ✅ Make sure your `utility` file includes the following fields:
 - `NAME`: label for outputs
-- `SYSTEM_TYPE`: bound, sc_scattering, cc_scattering
+- `SYSTEM_TYPE`: bound, sc_scattering
 - `RUN_CMD`: prefix to run binary (mpirun -np X)
 - `NQMCC_DIR`: /path/to/nQMCC
 - `BIN_DIR`: /path/to/nQMCC/bin
@@ -40,7 +39,24 @@ python /absolute/path/to/AutoOpt.py --utility /absolute/path/to/file.util
 - `THREE_BODY_POT_FILES`: list of 3 body files assumed in nQMCC/pots/
 - `NUM_BLOCKS BLOCK_SIZE WALKERS_PER_NODE`: Monte Carlo Sample information and topology (0 walkers per node unless Abe says otherwise)
 - `OPT_SCALE NUM_OPT_EVALUATIONS`: Fraction of Current Value in Decks to set bounds and number of total samples in a single COBYLA optimization
-> ⚠️ `IF SYSTEM_TYPE == SINGLE CHANNEL SCATTERING`:
+> ⚠️ `IF SYSTEM_TYPE == bound`:
+- `ESEP_START ESEP_STOP ESEP_NUM`: ESEP scale range and number of grid points
+- `ETA_FLAT`: flat step size for ETA parameters
+- `THREE_BODY_FLAT`: flat step size for 3b correlations (delta, epsilon, theta, upsilon, rscal, uscal)
+- `SS_FLAT`: flat step size for spatial symmetry (SS) block parameters
+- `ALPHA_DIR` *(optional)*: path to directory containing pre-optimized He-4 alpha-core decks; enables alpha-core seeding for improved convergence. If not found the run continues with the ctrl-file default deck.
+
+Optimization runs four phases per ESEP scale, each building on the previous:
+1. **Phase 0** — main correlations only (ESEP + global corr) at 50% scale
+2. **Phase 1** — first SS block only at 100% scale
+3. **Phase 2** — remaining SS blocks + main at 50% scale *(skipped if only one SS block)*
+4. **Phase 3** — full optimization (main + all SS) at 100% scale
+
+The best result across all ESEP scales is kept as the final deck. If no scale improves the energy, the original deck is preserved.
+
+Outputs include optimized nQMCC decks (`.dk`), per-pair results in `{pair}_results.json`, a combined summary in `combined_results.json`, and a full run log in `optimization_log.out`; all saved to the working directory.
+
+> ⚠️ `IF SYSTEM_TYPE == sc_scattering`:
 - `NUM_CHANNELS`: total number of channels to loop over
 - `SCATTERING_CTRL_FILES`: list of /path/to/scattering.ctrl
 - `SPATIAL_SYMMETRIES_INDEXS`: index of spatial symmetry
