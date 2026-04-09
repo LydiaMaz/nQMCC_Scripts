@@ -52,7 +52,7 @@ class utility_t:
 #-----------------------------------------------------------------------
         if self.SYSTEM_TYPE.lower() == "bound":
             data=data[13:]
-            self.ESEP_SCALE = float(data[0][0])
+            self.ESEP_START,self.ESEP_STOP,self.ESEP_NUM=float(data[0][0]),float(data[0][1]),int(data[0][2])
             self.ETA_FLAT,self.THREE_BODY_FLAT,self.SS_FLAT=[float(d) for d in data[1][:3]]
             if len(data) > 2 and len(data[2]) > 0:
                 self.ALPHA_DIR = data[2][0]
