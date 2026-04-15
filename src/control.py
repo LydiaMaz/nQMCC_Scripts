@@ -151,6 +151,51 @@ class control_t:
         self.INPUT_BRA.AddPrefix(self.BRA_TYPE,prefix)
         if self.BRA_EQ_KET != ".true.":
             self.INPUT_KET.AddPrefix(self.KET_TYPE,prefix)
+#-----------------------------------------------------------------------
+# CALC_FILE_TYPE integer codes (matches Fortran SELECT CASE)
+# 0=none  1=optimize  2=gfmc  3=phi  4=spec  5=anc  6=momd  7=emff
+#-----------------------------------------------------------------------
+class calc_t:
+#-----------------------------------------------------------------------
+    def __init__(self,calc_type,file_name_):
+        self.CALC_TYPE = int(calc_type)
+        self.FILE_NAME = file_name_
+        self.Read()
+#-----------------------------------------------------------------------
+    def Read(self):
+        if self.CALC_TYPE == 0: return
+        file = open(self.FILE_NAME.strip("\'"), 'r')
+        data = [(l.strip().split()) for l in file.readlines()]
+        file.close()
+        match self.CALC_TYPE:
+#-----------------------------------------------------------------------
+            case 1: # optimize
+#-----------------------------------------------------------------------
+                self.NLOPT_METHOD,self.NUM_OPT_WALKS,self.NUM_OPT_EVALUATIONS        = data[0][:3]
+                self.LIMIT_CHARGE_RADII,self.NEUTRON_RADIUS_LIMIT,self.PROTON_RADIUS_LIMIT = data[1][:3]
+                self.OPTIMIZATION_INPUT_FILE                                           = data[2][0]
+                self.OPTIMIZED_DECK_FILE                                               = data[3][0]
+#-----------------------------------------------------------------------
+            case _:
+#-----------------------------------------------------------------------
+                pass
+#-----------------------------------------------------------------------
+    def Write(self,out_file):
+        if self.CALC_TYPE == 0: return
+        file = open(out_file.strip("\'"), 'w')
+        match self.CALC_TYPE:
+#-----------------------------------------------------------------------
+            case 1: # optimize
+#-----------------------------------------------------------------------
+                file.write(" ".join([self.NLOPT_METHOD,self.NUM_OPT_WALKS,self.NUM_OPT_EVALUATIONS])+"\n")
+                file.write(" ".join([self.LIMIT_CHARGE_RADII,self.NEUTRON_RADIUS_LIMIT,self.PROTON_RADIUS_LIMIT])+"\n")
+                file.write(self.OPTIMIZATION_INPUT_FILE+"\n")
+                file.write(self.OPTIMIZED_DECK_FILE)
+#-----------------------------------------------------------------------
+            case _:
+#-----------------------------------------------------------------------
+                pass
+        file.close()
 #----------------------------------------------------------------------
 def JoinPath(p1,p2):
     return f"\'{p1.strip("\'")}{p2.strip("\'")}\'"
