@@ -20,7 +20,8 @@ class utility_t:
         print("UTILITY INPUTS")
         print("="*72)
         for key,val in self.__dict__.items():
-            print(f"{key} :: {val}")
+            if key != "CALC":
+                print(f"{key} :: {val}")
 #-----------------------------------------------------------------------
     def Read(self, filename):
         file = open(self.FILE_NAME.strip("\'"), 'r')
