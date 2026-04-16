@@ -9,7 +9,7 @@ from subprocess import run
 import os
 import re
 #-----------------------------------------------------------------------
-from control import control_t
+from control import control_t, calc_t
 #-----------------------------------------------------------------------
 class utility_t:
 #-----------------------------------------------------------------------
@@ -52,10 +52,13 @@ class utility_t:
 #-----------------------------------------------------------------------
         if self.SYSTEM_TYPE.lower() == "bound":
             data=data[13:]
-            self.ESEP_START,self.ESEP_STOP,self.ESEP_NUM=float(data[0][0]),float(data[0][1]),int(data[0][2])
-            self.ETA_FLAT,self.THREE_BODY_FLAT,self.SS_FLAT=[float(d) for d in data[1][:3]]
-            if len(data) > 2 and len(data[2]) > 0:
-                self.ALPHA_DIR = data[2][0]
+            self.CALC_TYPE,self.CALC_FILE=data[0][:2]
+            self.CALC=calc_t(self.CALC_TYPE,f"{self.NQMCC_DIR}ctrl/calc/{self.CALC_FILE}")
+            self.LIMIT_CHARGE_RADII,self.NEUTRON_RADIUS_LIMIT,self.PROTON_RADIUS_LIMIT=data[1][:3]
+            self.ESEP_START,self.ESEP_STOP,self.ESEP_NUM=float(data[2][0]),float(data[2][1]),int(data[2][2])
+            self.ETA_FLAT,self.THREE_BODY_FLAT,self.SS_FLAT=[float(d) for d in data[3][:3]]
+            if len(data) > 4 and len(data[4]) > 0:
+                self.ALPHA_DIR = data[4][0]
             else:
                 self.ALPHA_DIR = None
 #-----------------------------------------------------------------------
