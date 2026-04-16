@@ -4,7 +4,7 @@ nQMCC variational w.f. interface
 """
 from re import findall
 #-----------------------------------------------------------------------
-from control import control_t
+from control import control_t, calc_t
 from parameters import parameters_t
 from deck import deck_t
 from utility import nQMCC
@@ -15,12 +15,14 @@ class wavefunction_t:
         self.CTRL=control_t(ctrl_file_name,nqmcc_dir_)
         self.PARAMS=parameters_t(self.CTRL.INPUT_BRA.PARAM_FILE)
         self.DK=deck_t(self.PARAMS,self.CTRL.INPUT_BRA.DECK_FILE)
+        self.CALC=None
         self.NQMCC_DIR=nqmcc_dir_
         self.BIN_DIR=bin_dir_
         self.RUN_CMD=run_cmd_
 #-----------------------------------------------------------------------
     def Evaluate(self,write_log,log_name):
-        log = nQMCC("energy", self.CTRL, self.BIN_DIR, self.RUN_CMD, write_log, log_name)
+        # energy binary ignores CALC fields — safe to pass CALC_TYPE=1
+        log = nQMCC("energy", self.CTRL, self.CALC, self.BIN_DIR, self.RUN_CMD, write_log, log_name)
         rx=r'H\s*=\s*(-?\d+\.\d+)\s*\((\d+\.\d+)\)'
         try:
             energy_str,var_str = findall(rx, log)[-1]
@@ -31,11 +33,11 @@ class wavefunction_t:
 #-----------------------------------------------------------------------
     def Optimize(self,opt: deck_t,odk_file_name,write_log,log_name):
         opt.Write(self.PARAMS,opt.FILE_NAME)
-        self.CTRL.OPTIMIZATION_INPUT_FILE=opt.FILE_NAME
-        self.CTRL.OPTIMIZED_DECK_FILE=odk_file_name
-        log = nQMCC("optimize", self.CTRL, self.BIN_DIR, self.RUN_CMD, write_log, log_name)
-        self.DK=deck_t(self.PARAMS,self.CTRL.OPTIMIZED_DECK_FILE)
-        self.CTRL.INPUT_BRA.DECK_FILE=self.CTRL.OPTIMIZED_DECK_FILE
+        self.CALC.OPTIMIZATION_INPUT_FILE=opt.FILE_NAME
+        self.CALC.OPTIMIZED_DECK_FILE=odk_file_name
+        log = nQMCC("optimize", self.CTRL, self.CALC, self.BIN_DIR, self.RUN_CMD, write_log, log_name)
+        self.DK=deck_t(self.PARAMS,self.CALC.OPTIMIZED_DECK_FILE)
+        self.CTRL.INPUT_BRA.DECK_FILE=self.CALC.OPTIMIZED_DECK_FILE
         rx=r' OPTIMIZED ENERGY: (-?\d+\.\d+) \((\d+\.\d+)\)'
         try:
             opt_e_str,opt_v_str = findall(rx, log)[-1]
