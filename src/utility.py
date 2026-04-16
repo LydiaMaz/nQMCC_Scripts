@@ -62,9 +62,11 @@ class utility_t:
             else:
                 self.ALPHA_DIR = None
 #-----------------------------------------------------------------------
-def nQMCC(binary: str, ctrl: control_t, bin_dir: str, runner: list, write_log=False, log_name=""):
+def nQMCC(binary: str, ctrl: control_t, calc, bin_dir: str, runner: list, write_log=False, log_name=""):
         cmd = f"{" ".join(runner)} {bin_dir}{binary}".split()
         ctrl.Write(ctrl.FILE_NAME)
+        if calc is not None and calc.CALC_TYPE != 0:
+            calc.Write(ctrl.CALC_FILE)
         with open(ctrl.FILE_NAME, "r") as ctrl:
             result = run(cmd, stdin=ctrl, capture_output=True, text=True)
         if write_log:
