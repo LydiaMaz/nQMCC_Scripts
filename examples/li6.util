@@ -1,0 +1,18 @@
+li6                                                                               name
+bound                                                                             system_type
+mpirun -np 4                                                                      
+/Users/lydiamazeeva/QMC/nQMCC/refactor/nQMCC/                                     nqmcc_dir
+/Users/lydiamazeeva/QMC/nQMCC/refactor/nQMCC/build/bin/                             bin_dir
+/Users/lydiamazeeva/QMC/nQMCC/BoundStates/refactor/test/                          working_dir
+/Users/lydiamazeeva/QMC/nQMCC/refactor/nQMCC/ctrl/examples/natural/li6.ctrl       ctrl
+1                                                                                 num_pots
+fbn95.const                                                                       constant_file
+av18.2bp                                                                          2b_potential_files
+none.3bp                                                                          3b_potential_files
+1 100  0                                                                         num_blocks block_size walkers_per_node
+0.5 10                                                                            opt_scale   num_opt_evaluations
+1  opt.calc                                                                       calc_type  calc_file
+.true.  2.5  2.5                                                                 limit_charge_radii  nr_limit  pr_limit
+0.5 0.6 1                                                                         esep_start esp_stop esep_num
+0.0065 0.3 0.2                                                                    eta_flat 3bp_flat ss_flat
+/Users/lydiamazeeva/QMC/nQMCC/BoundStates/refactor/test/he4-2026-04-15_21-33      alpha_dir
