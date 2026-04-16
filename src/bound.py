@@ -32,7 +32,6 @@ from io import StringIO
 
 sys.path.append(os.path.dirname(__file__))
 
-from utility import utility_t
 from deck import deck_t, GenerateOptFile
 from wavefunction import wavefunction_t, InitNShellBoundWF
 from parameters import parameters_t
@@ -129,6 +128,13 @@ def make_ctrl_paths_relative(ctrl_in, nqmcc_dir, ctrl_out):
     with open(ctrl_out, "w") as f:
         f.write(text)
 
+def apply_calc_overrides(target, util):
+    """Override calc_t fields with per-nucleus values from util."""
+    target.CALC.NUM_OPT_EVALUATIONS  = str(util.NUM_OPT_EVALUATIONS)
+    target.CALC.LIMIT_CHARGE_RADII   = util.LIMIT_CHARGE_RADII
+    target.CALC.NEUTRON_RADIUS_LIMIT = util.NEUTRON_RADIUS_LIMIT
+    target.CALC.PROTON_RADIUS_LIMIT  = util.PROTON_RADIUS_LIMIT
+
 def build_target(util, pot_dir, pot_index):
     """Build a fresh wavefunction_t for the given potential pair."""
     base_ctrl_in = strip_quotes(util.CTRL_FILE)
@@ -137,10 +143,13 @@ def build_target(util, pot_dir, pot_index):
 
     target = wavefunction_t(patched_ctrl, util.NQMCC_DIR, util.BIN_DIR, util.RUN_CMD)
     target.CTRL.FILE_NAME          = f"{pot_dir}ctrl/target.ctrl"
+    target.CTRL.CALC_TYPE          = util.CALC_TYPE
+    target.CTRL.CALC_FILE          = quote_path(f"{pot_dir}ctrl/target.calc")
+    target.SetCalc(util.CALC_TYPE, f"{util.NQMCC_DIR}ctrl/calc/{util.CALC_FILE}")
+    apply_calc_overrides(target, util)
     target.CTRL.NUM_BLOCKS         = util.NUM_BLOCKS
     target.CTRL.BLOCK_SIZE         = util.BLOCK_SIZE
     target.CTRL.WALKERS_PER_NODE   = util.WALKERS_PER_NODE
-    target.CTRL.NUM_OPT_EVALUATIONS = util.NUM_OPT_EVALUATIONS
 
     target.CTRL.CONST_FILE = quote_path(f"{util.NQMCC_DIR}constants/{util.CONSTANTS_FILES[pot_index]}")
     target.CTRL.L2BP_FILE  = quote_path(f"{util.NQMCC_DIR}pots/{util.TWO_BODY_FILES[pot_index]}")
@@ -352,11 +361,11 @@ def BoundStateOptimizePhases(util, pair_name, pot_dir, pot_index):
     # --- Build initial target and optionally seed from a He-4 alpha core ---
     target0 = build_target(util, pot_dir, pot_index)
 
-    limit_radii = str(getattr(target0.CTRL, "LIMIT_CHARGE_RADII", ".false.")).strip().lower() == ".true."
+    limit_radii = str(util.LIMIT_CHARGE_RADII).strip().lower() == ".true."
     if limit_radii:
         print(f"LIMIT_CHARGE_RADII:   True")
-        print(f"NEUTRON_RADIUS_LIMIT: {float(getattr(target0.CTRL, 'NEUTRON_RADIUS_LIMIT', None))}")
-        print(f"PROTON_RADIUS_LIMIT:  {float(getattr(target0.CTRL, 'PROTON_RADIUS_LIMIT', None))}")
+        print(f"NEUTRON_RADIUS_LIMIT: {util.NEUTRON_RADIUS_LIMIT}")
+        print(f"PROTON_RADIUS_LIMIT:  {util.PROTON_RADIUS_LIMIT}")
     else:
         print(f"LIMIT_CHARGE_RADII:   False")
 
