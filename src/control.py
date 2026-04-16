@@ -107,7 +107,7 @@ class control_t:
 #----------------------------------------------------------------------
         self.RW_WALK,  self.WALK_FILE                           = data[data_index][:2]
         self.RNG_SEED                                           = data[data_index+1][0]
-        self.NUM_BLOCKS,self.BLOCK_SIZE,self.NUM_WALKERS_PER_NODE = data[data_index+2][:3]
+        self.NUM_BLOCKS,self.BLOCK_SIZE,self.WALKERS_PER_NODE = data[data_index+2][:3]
         self.BURN_IN_COUNT, self.NUM_MOVES_BETWEEN              = data[data_index+3][:2]
         self.PARTICLE_MAX_DX                                    = data[data_index+4][0]
         self.SAMPLE_L2, self.RSAM, self.PSAM                    = data[data_index+5][:3]
@@ -135,7 +135,7 @@ class control_t:
 #----------------------------------------------------------------------
         file.write(" ".join([self.RW_WALK,self.WALK_FILE])+"\n")
         file.write(self.RNG_SEED+"\n")
-        file.write(" ".join([self.NUM_BLOCKS,self.BLOCK_SIZE,self.NUM_WALKERS_PER_NODE])+"\n")
+        file.write(" ".join([self.NUM_BLOCKS,self.BLOCK_SIZE,self.WALKERS_PER_NODE])+"\n")
         file.write(" ".join([self.BURN_IN_COUNT,self.NUM_MOVES_BETWEEN])+"\n")
         file.write(self.PARTICLE_MAX_DX+"\n")
         file.write(" ".join([self.SAMPLE_L2,self.RSAM,self.PSAM])+"\n")

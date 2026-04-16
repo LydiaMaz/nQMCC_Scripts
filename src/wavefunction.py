@@ -20,9 +20,12 @@ class wavefunction_t:
         self.BIN_DIR=bin_dir_
         self.RUN_CMD=run_cmd_
 #-----------------------------------------------------------------------
+    def SetCalc(self,calc_type,calc_file):
+        self.CALC=calc_t(calc_type,calc_file)
+#-----------------------------------------------------------------------
     def Evaluate(self,write_log,log_name):
         # energy binary ignores CALC fields — safe to pass CALC_TYPE=1
-        log = nQMCC("energy", self.CTRL, self.CALC, self.BIN_DIR, self.RUN_CMD, write_log, log_name)
+        log = nQMCC("vmce", self.CTRL, self.CALC, self.BIN_DIR, self.RUN_CMD, write_log, log_name)
         rx=r'H\s*=\s*(-?\d+\.\d+)\s*\((\d+\.\d+)\)'
         try:
             energy_str,var_str = findall(rx, log)[-1]
