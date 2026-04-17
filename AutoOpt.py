@@ -140,7 +140,9 @@ def SingleChannelScattering(util: utility_t):
     target.CTRL.NUM_BLOCKS=util.NUM_BLOCKS
     target.CTRL.BLOCK_SIZE=util.BLOCK_SIZE
     target.CTRL.WALKERS_PER_NODE=util.WALKERS_PER_NODE
-    target.CTRL.NUM_OPT_EVALUATIONS=util.NUM_OPT_EVALUATIONS
+    target.CTRL.CALC_TYPE=util.CALC_TYPE
+    target.CTRL.CALC_FILE=f"'{util.WORKING_DIR}ctrl/target.calc'"
+    target.SetCalc(util.CALC_TYPE,f"{util.NQMCC_DIR}ctrl/calc/{util.CALC_FILE}")
     print("... DONE")
     print(BREAK)
 #-----------------------------------------------------------------------
@@ -173,9 +175,11 @@ def SingleChannelScattering(util: utility_t):
             scatter_label=scatter.DK.NAME.strip("\'")
             scatter.CTRL.FILE_NAME=f"{util.WORKING_DIR}scatter.ctrl"
             scatter.CTRL.NUM_BLOCKS=util.NUM_BLOCKS
-            scatter.CTRL.BLOCK_SIZE=util.BLOCK_SIZE 
+            scatter.CTRL.BLOCK_SIZE=util.BLOCK_SIZE
             scatter.CTRL.WALKERS_PER_NODE=util.WALKERS_PER_NODE
-            scatter.CTRL.NUM_OPT_EVALUATIONS=util.NUM_OPT_EVALUATIONS
+            scatter.CTRL.CALC_TYPE=util.CALC_TYPE
+            scatter.CTRL.CALC_FILE=f"'{util.WORKING_DIR}ctrl/scatter.calc'"
+            scatter.SetCalc(util.CALC_TYPE,f"{util.NQMCC_DIR}ctrl/calc/{util.CALC_FILE}")
             scatter.CTRL.CONST_FILE=f"'{util.NQMCC_DIR}constants/{const}'"
             scatter.CTRL.L2BP_FILE=f"'{util.NQMCC_DIR}pots/{pot2b}'"
             scatter.CTRL.L3BP_FILE=f"'{util.NQMCC_DIR}pots/{pot3b}'"
